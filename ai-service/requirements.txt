@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+earthengine-api
+numpy
+pandas
+scikit-learn
+opencv-python
+rasterio
+geopandas
+shapely
+python-dotenv
