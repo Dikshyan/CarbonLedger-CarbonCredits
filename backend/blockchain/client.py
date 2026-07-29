@@ -12,3 +12,16 @@ def get_wallet_address(owner_id):
     resp = requests.get(f"{BLOCKCHAIN_SERVICE_URL}/wallet/{owner_id}", timeout=15)
     resp.raise_for_status()
     return resp.json()
+
+def mint_credits(owner_id, amount, cid):
+    resp = requests.post(
+        f"{BLOCKCHAIN_SERVICE_URL}/contract/mint",
+        json={
+            "ownerId": owner_id,
+            "amount": amount,
+            "cid": cid
+        },
+        timeout=30
+    )
+    resp.raise_for_status()
+    return resp.json()

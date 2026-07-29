@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from api.models import Company,User
+from api.models import Company,User, CarbonTransaction
 class CompanySerializers(serializers.HyperlinkedModelSerializer):
     class Meta:
         model=Company
@@ -16,6 +16,7 @@ from .pinata import pin_json, PinataError
 from .models import CarbonTransaction
 from bson import ObjectId
 from .models import CarbonTransaction, get_available_credits  # plus whatever else is already there
+from .blockchain_client import mint_credits, BlockchainServiceError
 
 class CarbonTransactionSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
@@ -32,6 +33,8 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
                 data[key] = str(value)
         return data
 
+   
+
     def create(self, validated_data):
         transaction = CarbonTransaction.objects.create(**validated_data)
 
@@ -43,12 +46,26 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
             "project": str(transaction.project_id),
             "timestamp": transaction.created_at.isoformat(),
         }
+
         try:
             cid = pin_json(payload, name=f"tx-{transaction.id}")
             transaction.ipfs_cid = cid
             transaction.save(update_fields=["ipfs_cid"])
         except PinataError:
-            pass
+            cid = None
+
+        if transaction.transaction_type == "Issuance" and cid:
+            try:
+                result = mint_credits(
+                    owner_id=str(transaction.project_id),
+                    amount=str(transaction.credits),
+                    cid=cid,
+                )
+                transaction.tx_hash = result.get("txHash")
+                transaction.wallet_address = result.get("toAddress")
+                transaction.save(update_fields=["tx_hash", "wallet_address"])
+            except BlockchainServiceError:
+                pass
 
         return transaction
 

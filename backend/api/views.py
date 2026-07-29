@@ -8,7 +8,9 @@ from api.permissions import CanInitiateTransactionType, get_requesting_user
 from django.utils import timezone
 from api.reports import render_pdf
 from api.models import get_available_credits
-
+from blockchain.client import mint_credits
+from api.pinata import pin_json
+from rest_framework.views import APIView
 
 # Create your views here.
 
@@ -70,3 +72,20 @@ class CarbonTransactionViewSet(viewsets.ModelViewSet):
         filename = f"MRV_Certificate_{transaction.pk}.pdf"
         return render_pdf("reports/transaction_certificate.html", context, filename)
 
+class MintCreditsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def post(self, request, company_id):
+        company = Company.objects.get(pk=company_id)
+        credits = get_available_credits(company)
+        metadata = {
+       "company": company.name,
+       "credits": float(credits),
+        }
+        cid = pin_json(
+            metadata,
+            f"{company.name}_metadata"
+        )
+        return Response({
+            "success": True,
+            "cid": cid
+            })
