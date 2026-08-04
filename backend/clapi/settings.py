@@ -10,8 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,14 +33,15 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    'clapi.apps.MongoAdminConfig',
-    'clapi.apps.MongoAuthConfig',
-    'clapi.apps.MongoContentTypesConfig',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'api'
+    'rest_framework_simplejwt',
+    'api',
 ]
 
 MIDDLEWARE = [
@@ -78,9 +79,8 @@ WSGI_APPLICATION = 'clapi.wsgi.application'
 
 DATABASES = {
     'default': {
-        "ENGINE": "django_mongodb_backend",
-        "HOST": "mongodb+srv://CarbonLedger:AdminCl123@cluster0.to4s4of.mongodb.net/?appName=Cluster0",
-        "NAME": "carbonledger_db",
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -134,8 +134,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
-DEFAULT_AUTO_FIELD = "django_mongodb_backend.fields.ObjectIdAutoField"
-DATABASE_ROUTERS = ["django_mongodb_backend.routers.MongoRouter"]
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # settings.py
 from dotenv import load_dotenv

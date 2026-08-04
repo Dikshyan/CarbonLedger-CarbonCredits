@@ -4,7 +4,7 @@ from django.template.loader import render_to_string
 from django.http import HttpResponse
 
 PDFKIT_CONFIG = pdfkit.configuration(
-    wkhtmltopdf=r"D:\wkhtmltox\wkhtmltopdf\bin\wkhtmltopdf.exe"
+    wkhtmltopdf=r'C:\Users\LENOVO\Downloads\wkhtmltox\bin\wkhtmltopdf.exe'
 )
 
 def render_pdf(template_name, context, filename):
