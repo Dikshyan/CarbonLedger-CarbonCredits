@@ -1,22 +1,18 @@
 from rest_framework import serializers
-from api.models import Company,User, CarbonTransaction
-class CompanySerializers(serializers.HyperlinkedModelSerializer):
-    class Meta:
-        model=Company
-        fields="__all__"
-
-class UserSerializers(serializers.HyperlinkedModelSerializer):
-    id=serializers.ReadOnlyField()
-    class Meta:
-        model=User
-        fields="__all__"
-
-
+from api.models import Company, User, CarbonTransaction, get_available_credits
 from .pinata import pin_json, PinataError
-from .models import CarbonTransaction
-from bson import ObjectId
-from .models import CarbonTransaction, get_available_credits  # plus whatever else is already there
 from .blockchain_client import mint_credits, BlockchainServiceError
+
+class CompanySerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = "__all__"
+
+class UserSerializers(serializers.ModelSerializer):
+    id = serializers.ReadOnlyField()
+    class Meta:
+        model = User
+        fields = "__all__"
 
 class CarbonTransactionSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
@@ -26,29 +22,24 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["ipfs_cid"]
 
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        for key, value in data.items():
-            if isinstance(value, ObjectId):
-                data[key] = str(value)
-        return data
-
-   
-
     def create(self, validated_data):
         transaction = CarbonTransaction.objects.create(**validated_data)
 
+        transaction_id = getattr(transaction, "id", None)
+        initiated_by_id = getattr(transaction, "initiated_by_id", None)
+        project_id = getattr(transaction, "project_id", None)
+
         payload = {
-            "transaction_id": str(transaction.id),
+            "transaction_id": str(transaction_id),
             "credits": str(transaction.credits),
             "transaction_type": transaction.transaction_type,
-            "initiated_by": str(transaction.initiated_by_id),
-            "project": str(transaction.project_id),
+            "initiated_by": str(initiated_by_id),
+            "project": str(project_id),
             "timestamp": transaction.created_at.isoformat(),
         }
 
         try:
-            cid = pin_json(payload, name=f"tx-{transaction.id}")
+            cid = pin_json(payload, name=f"tx-{transaction_id}")
             transaction.ipfs_cid = cid
             transaction.save(update_fields=["ipfs_cid"])
         except PinataError:
@@ -57,7 +48,7 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
         if transaction.transaction_type == "Issuance" and cid:
             try:
                 result = mint_credits(
-                    owner_id=str(transaction.project_id),
+                    owner_id=str(project_id),
                     amount=str(transaction.credits),
                     cid=cid,
                 )
@@ -69,8 +60,6 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
 
         return transaction
 
-
-
     def validate(self, data):
         if data.get("transaction_type") == "Transfer":
             company = data.get("project")
@@ -79,5 +68,5 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
             if requested > available:
                 raise serializers.ValidationError(
                     f"Insufficient credits: company has {available}, requested {requested}."
-                    )
+                )
         return data

@@ -34,7 +34,7 @@ class CompanyViewSet(viewsets.ModelViewSet):
         requesting_user = get_requesting_user(request)
         if requesting_user is None:
             return Response({"detail": "user_id query param is required."}, status=400)
-        if requesting_user.role == "Company Buyer" and requesting_user.company_id != company.pk:
+        if requesting_user.role == "Company Buyer" and requesting_user.company_id != company.pk: #type: ignore
             return Response({"detail": "Not authorized to view this company's report."}, status=403)
         transactions = CarbonTransaction.objects.filter(project=company).order_by('created_at')
         balance = get_available_credits(company)
@@ -65,7 +65,7 @@ class CarbonTransactionViewSet(viewsets.ModelViewSet):
         requesting_user = get_requesting_user(request)
         if requesting_user is None:
             return Response({"detail": "user_id query param is required."}, status=400)
-        if requesting_user.role == "Company Buyer" and requesting_user.company_id != transaction.project_id:
+        if requesting_user.role == "Company Buyer" and requesting_user.company_id != transaction.project_id: #type: ignore
             return Response({"detail": "Not authorized to view this transaction's certificate."}, status=403)
 
         context = {"transaction": transaction}
