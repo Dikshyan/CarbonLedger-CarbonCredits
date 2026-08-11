@@ -20,21 +20,17 @@ class Company(models.Model):
         return self.name
 
 class User(models.Model):
-    username = models.CharField(max_length=50)
-    email = models.CharField(max_length=50)
-    password = models.CharField(max_length=128)  # Expanded for security hashes
-    role = models.CharField(
-        max_length=100,
-        choices=(
-            ('Admin', 'Admin'),
-            ('Government Official', 'Government Official'),
-            ('Company Buyer', 'Company Buyer'),
-            ('NGO Representative', 'NGO Representative')
-        )
-    )
-    added_date = models.DateTimeField(auto_now=True)
-    active = models.BooleanField(default=True)
-    company = models.ForeignKey(Company, on_delete=CASCADE)
+    username=models.CharField(max_length=50)
+    email=models.CharField(max_length=50)
+    password=models.CharField(max_length=10)
+    role=models.CharField(max_length=100,choices=(
+        ('Admin','Admin'),
+        ('Government Official','Government Official'),
+        ('Company Buyer','Company Buyer'),
+        ('NGO Representative',"NGO Representative")))
+    added_date=models.DateTimeField(auto_now=True)
+    active=models.BooleanField(default=True)
+    company=models.ForeignKey(Company, on_delete=CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.username

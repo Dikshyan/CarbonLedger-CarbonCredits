@@ -20,7 +20,7 @@ class CanInitiateTransactionType(permissions.BasePermission):
         "Recieve": ("Company Buyer", "Admin"),
         "Verification": ("Government Official", "NGO Representative", "Admin"),
         "Validation": ("Government Official", "NGO Representative", "Admin"),
-        "Cancellatiobn": ("Admin",),
+        "Cancellation": ("Admin",),
     }
 
     def has_permission(self, request, view):

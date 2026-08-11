@@ -9,10 +9,19 @@ class CompanySerializers(serializers.ModelSerializer):
         fields = "__all__"
 
 class UserSerializers(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField()
+    id=serializers.ReadOnlyField()
     class Meta:
-        model = User
-        fields = "__all__"
+        model=User
+        fields="__all__"
+
+    def validate(self, data):
+        role = data.get("role", getattr(self.instance, "role", None))
+        company = data.get("company", getattr(self.instance, "company", None))
+        if role == "Company Buyer" and not company:
+            raise serializers.ValidationError(
+                {"company": "A company is required for the 'Company Buyer' role."}
+            )
+        return data
 
 class CarbonTransactionSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)

@@ -14,9 +14,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env")   # monorepo root, one level above backend/
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -136,12 +135,7 @@ REST_FRAMEWORK = {
 }
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# settings.py
-from dotenv import load_dotenv
-load_dotenv()
 
-import os
 PINATA_JWT = os.environ.get("PINATA_JWT")
 PINATA_GATEWAY = os.environ.get("PINATA_GATEWAY", "gateway.pinata.cloud")
-
-BLOCKCHAIN_SERVICE_URL = "http://localhost:4000"
+BLOCKCHAIN_SERVICE_URL = os.environ.get("BLOCKCHAIN_SERVICE_URL", "http://localhost:4000")
