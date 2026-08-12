@@ -11,6 +11,7 @@ from api.models import get_available_credits
 from blockchain.client import mint_credits
 from api.pinata import pin_json
 from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 
@@ -75,7 +76,7 @@ class CarbonTransactionViewSet(viewsets.ModelViewSet):
 class MintCreditsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def post(self, request, company_id):
-        company = Company.objects.get(pk=company_id)
+        company = get_object_or_404(Company, pk=company_id)
         credits = get_available_credits(company)
         metadata = {
        "company": company.name,
