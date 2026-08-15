@@ -12,8 +12,8 @@ from blockchain.client import mint_credits
 from api.pinata import pin_json
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from api.serializers import RegisterSerializer, MeSerializer
 
-# Create your views here.
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -90,3 +90,25 @@ class MintCreditsView(APIView):
             "success": True,
             "cid": cid
             })
+        
+class RegisterView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(MeSerializer(user).data, status=201)
+
+
+class MeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            profile = request.user.profile
+        except User.DoesNotExist:
+            return Response({"detail": "No business profile linked to this account."}, status=404)
+        return Response(MeSerializer(profile).data)
+    
+    

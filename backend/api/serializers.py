@@ -2,11 +2,63 @@ from rest_framework import serializers
 from api.models import Company, User, CarbonTransaction, get_available_credits
 from .pinata import pin_json, PinataError
 from .blockchain_client import mint_credits, BlockchainServiceError
+from django.contrib.auth.models import User as AuthUser
+from django.contrib.auth.password_validation import validate_password
+
+
+class RegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    role = serializers.ChoiceField(choices=[
+        'Admin', 'Government Official', 'Company Buyer', 'NGO Representative'
+    ])
+    company = serializers.PrimaryKeyRelatedField(
+        queryset=Company.objects.all(), required=False, allow_null=True
+    )
+
+    def validate_username(self, value):
+        if AuthUser.objects.filter(username=value).exists():
+            raise serializers.ValidationError("That username is already taken.")
+        return value
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, data):
+        if data.get("role") == "Company Buyer" and not data.get("company"):
+            raise serializers.ValidationError(
+                {"company": "A company is required for the 'Company Buyer' role."}
+            )
+        return data
+
+    def create(self, validated_data):
+        auth_user = AuthUser.objects.create_user(
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password=validated_data["password"],
+        )
+        business_user = User.objects.create(
+            auth_user=auth_user,
+            username=validated_data["username"],
+            email=validated_data["email"],
+            password="",  # not used for real auth anymore, kept blank
+            role=validated_data["role"],
+            company=validated_data.get("company"),
+            active=True,
+        )
+        return business_user
 
 class CompanySerializers(serializers.ModelSerializer):
     class Meta:
         model = Company
         fields = "__all__"
+
+class MeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "role", "company", "active"]
 
 class UserSerializers(serializers.ModelSerializer):
     id=serializers.ReadOnlyField()

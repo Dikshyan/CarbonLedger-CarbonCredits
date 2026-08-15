@@ -1,25 +1,28 @@
 from django.db import models
 from django.db.models import CASCADE, Sum
+from django.contrib.auth.models import User as AuthUser
 
 class Company(models.Model):
-    name = models.CharField(max_length=50)
-    location = models.CharField(max_length=50)
-    about = models.TextField()
-    type = models.CharField(
-        max_length=100,
-        choices=(
-            ("IT", "IT"),
-            ('Credit Transfer', 'Credit Transfer')
-        )
-    )
-    added_date = models.DateTimeField(auto_now=True)
-    active = models.BooleanField(default=True)
-    wallet_address = models.CharField(max_length=42, blank=True, null=True)
+    name=models.CharField(max_length=50)
+    location=models.CharField(max_length=50)
+    about=models.TextField()
+    type=models.CharField(max_length=100,choices=
+                          (
+                              ("Blue Carbon Project", "Blue Carbon Project"),
+                              ("Buyer Company", "Buyer Company"),
+                              ("Verifier Organization", "Verifier Organization"),
+                              ("IT", "IT"),
+                              ('Credit Transfer', 'Credit Transfer'),
+                              ))
+    added_date=models.DateTimeField(auto_now=True)
+    active=models.BooleanField(default=True)
+    wallet_address=models.CharField(max_length=42,blank=True,null=True)
 
     def __str__(self):
         return self.name
 
 class User(models.Model):
+    auth_user = models.OneToOneField(AuthUser, on_delete=CASCADE, related_name="profile", null=True, blank=True)
     username=models.CharField(max_length=50)
     email=models.CharField(max_length=50)
     password=models.CharField(max_length=10)
@@ -34,6 +37,7 @@ class User(models.Model):
 
     def __str__(self):
         return self.username
+
 
 class CarbonTransaction(models.Model):
     project = models.ForeignKey(Company, on_delete=models.CASCADE)
