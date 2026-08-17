@@ -7,13 +7,12 @@ from rest_framework.response import Response
 from api.permissions import CanInitiateTransactionType, get_requesting_user
 from django.utils import timezone
 from api.reports import render_pdf
-from api.models import get_available_credits
+from api.models import get_available_credits, PricingConfig
 from blockchain.client import mint_credits
 from api.pinata import pin_json
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from api.serializers import RegisterSerializer, MeSerializer
-
+from api.serializers import RegisterSerializer, MeSerializer, PricingConfigSerializer
 
 
 class CompanyViewSet(viewsets.ModelViewSet):
@@ -110,5 +109,23 @@ class MeView(APIView):
         except User.DoesNotExist:
             return Response({"detail": "No business profile linked to this account."}, status=404)
         return Response(MeSerializer(profile).data)
+    
+class PricingConfigView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        config = PricingConfig.objects.first()
+        if not config:
+            return Response({"detail": "No pricing configured."}, status=404)
+        return Response(PricingConfigSerializer(config).data)
+
+    def patch(self, request):
+        if not (request.user.is_superuser or getattr(request.user.profile, 'role', None) == 'Admin'):
+            return Response({"detail": "Only admins can update pricing."}, status=403)
+        config = PricingConfig.objects.first()
+        serializer = PricingConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
     
     

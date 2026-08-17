@@ -1,7 +1,7 @@
 
 from django.urls import path, include  
 from rest_framework import routers  
-from api.views import CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView, RegisterView, MeView
+from api.views import CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView, RegisterView, MeView, PricingConfigView
 
 router = routers.DefaultRouter()
 router.register(r'CarbonLedger', CompanyViewSet)
@@ -13,4 +13,5 @@ urlpatterns = [
     path("company/<str:company_id>/mint/", MintCreditsView.as_view(), name="mint-credits"),
     path("register/", RegisterView.as_view(), name="register"),
     path("me/", MeView.as_view(), name="me"),
+    path("pricing/", PricingConfigView.as_view(), name="pricing"),
 ]

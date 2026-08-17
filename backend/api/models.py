@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 from django.db.models import CASCADE, Sum
 from django.contrib.auth.models import User as AuthUser
@@ -58,6 +60,13 @@ class CarbonTransaction(models.Model):
     ipfs_cid = models.CharField(max_length=100, blank=True, null=True)
     tx_hash = models.CharField(max_length=100, blank=True, null=True)          
     wallet_address = models.CharField(max_length=100, blank=True, null=True)   
+    
+class PricingConfig(models.Model):
+    price_per_credit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("15.00"))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"${self.price_per_credit} per credit"
 
 def get_available_credits(company):
     incoming = CarbonTransaction.objects.filter(

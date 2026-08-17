@@ -4,7 +4,7 @@ from .pinata import pin_json, PinataError
 from .blockchain_client import mint_credits, BlockchainServiceError
 from django.contrib.auth.models import User as AuthUser
 from django.contrib.auth.password_validation import validate_password
-
+from api.models import PricingConfig
 
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
@@ -121,6 +121,11 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
                 pass
 
         return transaction
+
+class PricingConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingConfig
+        fields = ["id", "price_per_credit", "updated_at"]
 
     def validate(self, data):
         if data.get("transaction_type") == "Transfer":
