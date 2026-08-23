@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import WaveDivider from '@/components/WaveDivider';
 import { Leaf, TrendingUp, Globe, BarChart3 } from 'lucide-react';
+import oceanecosystem from '@/assets/oceanecosystem.jpeg'
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -63,7 +64,7 @@ export default function Landing() {
             <div className="relative">
               /*
               <img
-                src="/manus-storage/bcr-hero-ocean_76454c98.png"
+                src={oceanecosystem}
                 alt="Ocean ecosystem"
                 className="rounded-lg shadow-2xl"
               />

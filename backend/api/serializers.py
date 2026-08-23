@@ -82,7 +82,7 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = CarbonTransaction
         fields = "__all__"
-        read_only_fields = ["ipfs_cid"]
+        read_only_fields = ["ipfs_cid", "initiated_by"]
 
     def create(self, validated_data):
         transaction = CarbonTransaction.objects.create(**validated_data)

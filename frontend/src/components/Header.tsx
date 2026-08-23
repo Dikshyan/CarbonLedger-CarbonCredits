@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import carboncreditheader from "@/assets/carboncreditheader.jpeg";
 
 export default function Header() {
   const [, setLocation] = useLocation();
@@ -42,7 +43,7 @@ export default function Header() {
           >
             
             <img
-              src="/manus-storage/bcr-logo_95923b37.png"
+              src= {carboncreditheader} 
               alt="Blue Carbon Registry"
               className="h-8 w-8"
             />
