@@ -1,7 +1,9 @@
-
-from django.urls import path, include  
-from rest_framework import routers  
-from api.views import CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView, RegisterView, MeView, PricingConfigView
+from django.urls import path, include
+from api.views import (
+    CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView,
+    RegisterView, MeView, PricingConfigView,
+)
+from rest_framework import routers
 
 router = routers.DefaultRouter()
 router.register(r'CarbonLedger', CompanyViewSet)
