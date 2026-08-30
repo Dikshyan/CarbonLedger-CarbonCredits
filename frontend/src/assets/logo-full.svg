@@ -1,12 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
-  <rect width="40" height="40" rx="8" fill="#0d3b3b" />
-  
-  <!-- Subtle circular border -->
-  <circle cx="20" cy="20" r="14.5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3 1.5" opacity="0.6" />
-  <circle cx="20" cy="20" r="14.5" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.4" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 36" width="170" height="36">
+  <!-- Scaled icon to 32x32 -->
+  <g transform="translate(2, 2) scale(0.8)">
+    <!-- Subtle circular/hexagonal border -->
+    <circle cx="20" cy="20" r="17.5" fill="none" stroke="#ffffff" stroke-width="1.8" stroke-dasharray="4 2" opacity="0.6" />
+    <circle cx="20" cy="20" r="17.5" fill="none" stroke="#ffffff" stroke-width="1.8" opacity="0.4" />
 
-  <!-- Mangrove tree / leaf icon scaled inside favicon background -->
-  <g transform="translate(4, 4) scale(0.8)">
     <!-- Mangrove center leaf -->
     <path d="M20,8 C20,8 15.5,13.5 15.5,18.5 C15.5,22.5 18.5,24 20,25 C21.5,24 24.5,22.5 24.5,18.5 C24.5,13.5 20,8 20,8 Z" fill="#ffffff" />
     
@@ -27,4 +25,9 @@
     <circle cx="33.5" cy="13.5" r="1.8" fill="#80cbc4" />
     <circle cx="31.5" cy="17" r="1.5" fill="#80cbc4" />
   </g>
+
+  <!-- Wordmark -->
+  <text x="40" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="18" letter-spacing="-0.01em">
+    <tspan fill="#ffffff" font-weight="600">Carbon</tspan><tspan fill="#80cbc4" font-weight="300">Ledger</tspan>
+  </text>
 </svg>

@@ -13,6 +13,9 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import CarbonHistory from "@/pages/CarbonHistory";
 import MapsCharts from "@/pages/MapsCharts";
 import ProjectRegistration from "@/pages/ProjectRegistration";
+import Marketplace from "@/pages/Marketplace";
+import Reports from "@/pages/Reports";
+import Profile from "@/pages/Profile";
 import NotFound from "@/pages/NotFound";
 
 function App() {
@@ -32,6 +35,10 @@ function App() {
                 <Route path="/carbon-history" component={CarbonHistory} />
                 <Route path="/maps-charts" component={MapsCharts} />
                 <Route path="/projects" component={ProjectRegistration} />
+                <Route path="/projects/new" component={ProjectRegistration} />
+                <Route path="/marketplace" component={Marketplace} />
+                <Route path="/reports" component={Reports} />
+                <Route path="/profile" component={Profile} />
                 <Route component={NotFound} />
               </Switch>
             </main>
@@ -44,4 +51,3 @@ function App() {
 }
 
 export default App;
-

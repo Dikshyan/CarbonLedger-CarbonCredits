@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 load_dotenv(BASE_DIR.parent / ".env")   # monorepo root, one level above backend/
 
 # Quick-start development settings - unsuitable for production

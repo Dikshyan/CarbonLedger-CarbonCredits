@@ -13,6 +13,7 @@ interface Company {
   name: string;
   location: string;
   active: boolean;
+  status: string;
 }
 
 interface Transaction {
@@ -52,7 +53,7 @@ export default function Dashboard() {
         setLoading(true);
 
         const [projectResponse, txData, pricingData] = await Promise.all([
-          apiFetch('/CarbonLedger/'),
+          apiFetch('/api/v1/CarbonLedger/'),
           apiFetch('/api/v1/CarbonLedgerTransactions/'),
           apiFetch('/api/v1/pricing/'),
         ]);
@@ -226,12 +227,14 @@ export default function Dashboard() {
                         <td className="py-3 px-4">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              project.active
+                              project.status === 'Verified'
                                 ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
+                                : project.status === 'Rejected'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-orange-100 text-orange-700'
                             }`}
                           >
-                            {project.active ? 'Active' : 'Inactive'}
+                            {project.status || (project.active ? 'Active' : 'Pending')}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right text-slate-900 font-medium">
