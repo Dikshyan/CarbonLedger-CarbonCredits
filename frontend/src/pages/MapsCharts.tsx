@@ -9,18 +9,39 @@ import {
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 
+// Fix default Leaflet marker icon paths (required with bundlers)
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+// Custom coloured marker icons
+const verifiedIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize:   [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor:[1, -34],
+  shadowSize: [41, 41],
+});
+
+const pendingIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize:   [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor:[1, -34],
+  shadowSize: [41, 41],
 });
 
 interface Company {
   id: number;
   name: string;
   type: string;
-  latitude: string | null;
+  status: string;
+  latitude:  string | null;
   longitude: string | null;
 }
 
@@ -30,17 +51,21 @@ interface Transaction {
   transaction_type: string;
 }
 
-const ADDS = ['Issuance', 'Recieve'];
+const ADDS      = ['Issuance', 'Recieve'];
 const SUBTRACTS = ['Transfer', 'Cancellation'];
 
 const COLORS = ['#1e5a8e', '#0ea5a5', '#06b6d4', '#0891b2', '#64748b'];
 
+// Default map center: Sundarbans, West Bengal
+const SUNDARBANS_CENTER: [number, number] = [21.9497, 88.9320];
+const DEFAULT_ZOOM = 7;
+
 export default function MapsCharts() {
-  const [isMounted, setIsMounted] = useState(false);
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isMounted, setIsMounted]       = useState(false);
+  const [companies, setCompanies]       = useState<Company[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
 
   useEffect(() => {
     setIsMounted(true);
@@ -63,7 +88,7 @@ export default function MapsCharts() {
       .filter((t) => t.project === companyId)
       .reduce((sum, t) => {
         const amt = parseFloat(t.credits);
-        if (ADDS.includes(t.transaction_type)) return sum + amt;
+        if (ADDS.includes(t.transaction_type))      return sum + amt;
         if (SUBTRACTS.includes(t.transaction_type)) return sum - amt;
         return sum;
       }, 0);
@@ -77,6 +102,12 @@ export default function MapsCharts() {
     typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
   });
   const projectTypeData = Object.entries(typeCounts).map(([name, value]) => ({ name, value }));
+
+  const statusBadge = (status: string) => {
+    if (status === 'Verified') return 'bg-green-100 text-green-700';
+    if (status === 'Rejected') return 'bg-red-100 text-red-700';
+    return 'bg-orange-100 text-orange-700';
+  };
 
   if (loading) {
     return (
@@ -93,7 +124,7 @@ export default function MapsCharts() {
       <div className="min-h-screen bg-slate-50 py-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Maps & Analytics</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Maps &amp; Analytics</h1>
             <p className="text-slate-600">Visualize your projects and track carbon metrics</p>
           </div>
 
@@ -103,36 +134,77 @@ export default function MapsCharts() {
             </div>
           )}
 
+          {/* ─── Project Map ─── */}
           <Card className="p-6 mb-8">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Project Locations</h2>
-            {mappable.length === 0 ? (
-              <p className="text-sm text-slate-500 py-8 text-center">
-                No projects have coordinates yet. Add latitude/longitude when registering a project.
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900">Project Locations</h2>
+              <div className="flex items-center gap-4 text-xs text-slate-600">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span> Verified
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full bg-orange-400"></span> Pending
+                </span>
+              </div>
+            </div>
+
+            {isMounted && (
+              <div className="rounded-lg overflow-hidden" style={{ height: '420px' }}>
+                <MapContainer
+                  center={mappable.length > 0
+                    ? [parseFloat(mappable[0].latitude!), parseFloat(mappable[0].longitude!)]
+                    : SUNDARBANS_CENTER}
+                  zoom={DEFAULT_ZOOM}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  {/* FIX 2: OpenStreetMap tiles */}
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  />
+
+                  {/* FIX 4: Project markers with Verified (green) / Pending (orange) icons */}
+                  {mappable.map((project) => (
+                    <Marker
+                      key={project.id}
+                      position={[parseFloat(project.latitude!), parseFloat(project.longitude!)]}
+                      icon={project.status === 'Verified' ? verifiedIcon : pendingIcon}
+                    >
+                      <Popup>
+                        <div className="text-sm min-w-[160px]">
+                          <p className="font-semibold mb-1">{project.name}</p>
+                          <p className="text-slate-600 mb-1">
+                            {availableCredits(project.id).toLocaleString()} available credits
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadge(project.status)}`}>
+                            {project.status}
+                          </span>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+
+                  {/* FIX 3: If no coordinates, map still defaults to Sundarbans */}
+                  {mappable.length === 0 && (
+                    <Marker position={SUNDARBANS_CENTER}>
+                      <Popup>
+                        <p className="text-sm font-semibold">Sundarbans Region</p>
+                        <p className="text-xs text-slate-500">Register projects to see them here</p>
+                      </Popup>
+                    </Marker>
+                  )}
+                </MapContainer>
+              </div>
+            )}
+
+            {mappable.length === 0 && (
+              <p className="text-xs text-slate-400 mt-2 text-center">
+                Showing default Sundarbans view — add latitude/longitude when registering a project to place it on the map.
               </p>
-            ) : (
-              isMounted && (
-                <div className="rounded-lg overflow-hidden" style={{ height: '400px' }}>
-                  <MapContainer center={[0, 0]} zoom={2} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; OpenStreetMap contributors'
-                    />
-                    {mappable.map((project) => (
-                      <Marker key={project.id} position={[parseFloat(project.latitude!), parseFloat(project.longitude!)]}>
-                        <Popup>
-                          <div className="text-sm">
-                            <p className="font-semibold">{project.name}</p>
-                            <p className="text-slate-600">{availableCredits(project.id).toLocaleString()} available credits</p>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    ))}
-                  </MapContainer>
-                </div>
-              )
             )}
           </Card>
 
+          {/* ─── Charts ─── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <Card className="p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Project Type Distribution</h2>
@@ -179,4 +251,3 @@ export default function MapsCharts() {
     </ProtectedRoute>
   );
 }
-

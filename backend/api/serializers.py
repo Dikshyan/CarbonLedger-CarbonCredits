@@ -85,25 +85,17 @@ class PricingConfigSerializer(serializers.ModelSerializer):
 
 
 from .pinata import pin_json, PinataError
-from bson import ObjectId
 from blockchain.client import (
     transfer_credits, BlockchainServiceError
 )
 
 class CarbonTransactionSerializer(serializers.ModelSerializer):
-    id = serializers.CharField(read_only=True)
+    id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = CarbonTransaction
         fields = "__all__"
         read_only_fields = ["ipfs_cid", "initiated_by", "tx_hash", "wallet_address"]
-
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        for key, value in data.items():
-            if isinstance(value, ObjectId):
-                data[key] = str(value)
-        return data
 
     def validate(self, data):
         transaction_type = data.get("transaction_type")
