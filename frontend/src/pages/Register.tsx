@@ -127,9 +127,15 @@ export default function Register() {
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
                   {ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                    <SelectItem
+                      key={r}
+                      value={r}
+                      className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 data-[highlighted]:bg-slate-100 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
+                    >
+                      {r}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -144,9 +150,15 @@ export default function Register() {
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select your company" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-50 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
                     {companies.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      <SelectItem
+                        key={c.id}
+                        value={String(c.id)}
+                        className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 data-[highlighted]:bg-slate-100 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
+                      >
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

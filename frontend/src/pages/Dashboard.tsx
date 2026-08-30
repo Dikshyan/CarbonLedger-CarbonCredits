@@ -40,40 +40,56 @@ function availableCredits(transactions: Transaction[], companyId: number) {
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
-  const [companies, setCompanies] = useState<Company[]>([]);
+  const [projects, setProjects] = useState<Company[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pricePerCredit, setPricePerCredit] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      apiFetch('/api/v1/CarbonLedger/'),
-      apiFetch('/api/v1/CarbonLedgerTransactions/'),
-      apiFetch('/api/v1/pricing/'),
-    ])
-      .then(([companyData, txData, pricingData]) => {
+    const loadProjects = async () => {
+      try {
+        setLoading(true);
+
+        const [projectResponse, txData, pricingData] = await Promise.all([
+          apiFetch('/CarbonLedger/'),
+          apiFetch('/api/v1/CarbonLedgerTransactions/'),
+          apiFetch('/api/v1/pricing/'),
+        ]);
+
+        const projectList = Array.isArray(projectResponse)
+          ? projectResponse
+          : (projectResponse?.results && Array.isArray(projectResponse.results))
+            ? projectResponse.results
+            : [];
+
         // A Company Buyer only sees their own company; other roles see everything.
         const scoped =
           user?.role === 'Company Buyer' && user.company
-            ? companyData.filter((c: Company) => c.id === user.company)
-            : companyData;
-        setCompanies(scoped);
+            ? projectList.filter((c: Company) => c.id === user.company)
+            : projectList;
+
+        setProjects(scoped);
         setTransactions(txData);
         setPricePerCredit(parseFloat(pricingData.price_per_credit));
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProjects();
   }, [user]);
 
-  const totalCredits = companies.reduce(
-    (sum, c) => sum + availableCredits(transactions, c.id),
+  const totalCredits = projects.reduce(
+    (sum: number, project: Company) => sum + availableCredits(transactions, project.id),
     0
   );
   const verifiedCredits = transactions.filter((t) => t.ipfs_cid).length
     ? transactions
-        .filter((t) => t.ipfs_cid && companies.some((c) => c.id === t.project))
-        .reduce((sum, t) => sum + parseFloat(t.credits), 0)
+        .filter((t) => t.ipfs_cid && projects.some((project: Company) => project.id === t.project))
+        .reduce((sum: number, t: Transaction) => sum + parseFloat(t.credits), 0)
     : 0;
 
   if (loading) {
@@ -106,7 +122,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
               label="Total Projects"
-              value={companies.length}
+              value={projects.length}
               icon={<Activity className="h-6 w-6" />}
               description="Visible to your role"
             />
@@ -187,7 +203,7 @@ export default function Dashboard() {
               </Button>
             </div>
 
-            {companies.length === 0 ? (
+            {projects.length === 0 ? (
               <p className="text-sm text-slate-500 py-8 text-center">
                 No projects to show yet.
               </p>
@@ -203,7 +219,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {companies.map((project) => (
+                    {projects.map((project) => (
                       <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-3 px-4 text-slate-900 font-medium">{project.name}</td>
                         <td className="py-3 px-4 text-slate-600">{project.location}</td>

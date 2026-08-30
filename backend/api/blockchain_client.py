@@ -1,48 +1,62 @@
-import requests
+import os
+import json
+from web3 import Web3
 from django.conf import settings
 
+class CarbonLedgerClient:
+    def __init__(self):
+        node_url = os.getenv('BLOCKCHAIN_NODE_URL', 'http://127.0.0.1:8545')
+        self.w3 = Web3(Web3.HTTPProvider(node_url))
+        
+        raw_address = os.getenv('CONTRACT_ADDRESS')
+        if not raw_address:
+            raise ValueError("CONTRACT_ADDRESS environment variable is missing.")
+        
+        self.contract_address = self.w3.to_checksum_address(raw_address)
+        
+        abi_path = os.path.join(
+            settings.BASE_DIR, 
+            '../blockchain/CarbonLedgerABI.json'
+        )
+        
+        with open(abi_path, 'r') as f:
+            self.contract_abi = json.load(f)
+            
+        self.contract = self.w3.eth.contract(
+            address=self.contract_address, 
+            abi=self.contract_abi
+        )
 
-class BlockchainServiceError(Exception):
-    """Raised when the Node blockchain microservice returns an error or is unreachable."""
-    pass
+    def is_connected(self):
+        return self.w3.is_connected()
 
-
-def _request(method, path, payload=None):
-    url = f"{settings.BLOCKCHAIN_SERVICE_URL}{path}"
-    try:
-        resp = requests.request(method, url, json=payload, timeout=15)
-    except requests.RequestException as e:
-        raise BlockchainServiceError(f"Could not reach blockchain service: {e}")
-
-    if not resp.ok:
-        try:
-            detail = resp.json().get("error", resp.text)
-        except ValueError:
-            detail = resp.text
-        raise BlockchainServiceError(detail)
-
-    return resp.json()
-
-
-def create_wallet(owner_id):
-    return _request("POST", "/wallet/create", {"ownerId": owner_id})
-
-
-def get_wallet(owner_id):
-    return _request("GET", f"/wallet/{owner_id}")
-
-
-def mint_credits(owner_id, amount, cid):
-    return _request("POST", "/contract/mint", {
-        "ownerId": owner_id, "amount": amount, "cid": cid
-    })
-
-
-def transfer_credits(from_owner_id, to_owner_id, amount):
-    return _request("POST", "/contract/transfer", {
-        "fromOwnerId": from_owner_id, "toOwnerId": to_owner_id, "amount": amount
-    })
-
-
-def get_balance(owner_id):
-    return _request("GET", f"/contract/balance/{owner_id}")
+    def register_project(self, project_hash, owner_address):
+        nonce = self.w3.eth.get_transaction_count(owner_address)
+        tx = self.contract.functions.registerProject(project_hash).build_transaction({
+            'from': owner_address,
+            'nonce': nonce,
+            'gas': 2000000,
+            'gasPrice': self.w3.eth.gas_price
+        })
+        return tx
+        
+    def mint_credits(self, project_id, amount, owner_address):
+        nonce = self.w3.eth.get_transaction_count(owner_address)
+        tx = self.contract.functions.mintCredits(project_id, amount).build_transaction({
+            'from': owner_address,
+            'nonce': nonce,
+            'gas': 2000000,
+            'gasPrice': self.w3.eth.gas_price
+        })
+        return tx
+        
+    def retire_credits(self, project_id, amount, owner_address):
+        nonce = self.w3.eth.get_transaction_count(owner_address)
+        tx = self.contract.functions.retireCredits(project_id, amount).build_transaction({
+            'from': owner_address,
+            'nonce': nonce,
+            'gas': 2000000,
+            'gasPrice': self.w3.eth.gas_price
+        })
+        return tx
+    
