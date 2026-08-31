@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CarbonLedger MRV Report — {{ company.name }}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: #ffffff;
+            color: #1e293b;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0e7490 50%, #064e3b 100%);
+            padding: 36px 48px 32px;
+            color: white;
+        }
+
+        .page-header .brand {
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.65);
+            margin-bottom: 8px;
+        }
+
+        .page-header h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .page-header .subtitle {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .page-header .badge {
+            display: inline-block;
+            margin-top: 14px;
+            padding: 4px 12px;
+            background: rgba(52, 211, 153, 0.25);
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            border-radius: 20px;
+            color: #a7f3d0;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* ── Body Content ── */
+        .content {
+            padding: 36px 48px;
+        }
+
+        /* ── Info Cards ── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px 20px;
+        }
+
+        .info-card .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .info-card .value {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        /* Summary credits card */
+        .credits-highlight {
+            background: linear-gradient(135deg, #eff6ff, #ecfdf5);
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 18px 24px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .credits-highlight .lbl { font-size: 12px; color: #475569; font-weight: 600; }
+        .credits-highlight .val { font-size: 28px; font-weight: 800; color: #0369a1; }
+        .credits-highlight .unit { font-size: 13px; color: #64748b; }
+
+        /* Section Heading */
+        h2.section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        /* ── Transactions Table ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 32px;
+        }
+
+        thead tr {
+            background: #0c4a6e;
+            color: white;
+        }
+
+        thead th {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody tr:hover { background: #eff6ff; }
+
+        tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+        }
+
+        .tx-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .tx-Issuance     { background: #dcfce7; color: #166534; }
+        .tx-Transfer     { background: #dbeafe; color: #1e40af; }
+        .tx-Recieve      { background: #e0f2fe; color: #0c4a6e; }
+        .tx-Cancellation { background: #fee2e2; color: #991b1b; }
+        .tx-Verification { background: #fef9c3; color: #854d0e; }
+        .tx-Validation   { background: #ede9fe; color: #5b21b6; }
+
+        .cid-link {
+            font-family: monospace;
+            color: #0369a1;
+            font-size: 11px;
+            word-break: break-all;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #94a3b8;
+            padding: 24px;
+            font-style: italic;
+        }
+
+        /* ── Footer ── */
+        .footer {
+            margin-top: 40px;
+            padding: 20px 48px;
+            background: #f1f5f9;
+            border-top: 2px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer .left {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .footer .brand-tag {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0c4a6e;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ── Page Header ──────────────────── -->
+<div class="page-header">
+    <p class="brand">CarbonLedger · Blue Carbon MRV Platform</p>
+    <h1>Project MRV Report</h1>
+    <p class="subtitle">Measurement, Reporting & Verification — Official Document</p>
+    <span class="badge">✓ Blockchain-Anchored · IPFS-Pinned</span>
+</div>
+
+<div class="content">
+
+    <!-- ── Project Info Grid ── -->
+    <div class="info-grid">
+        <div class="info-card">
+            <p class="label">Project Name</p>
+            <p class="value">{{ company.name }}</p>
+        </div>
+        <div class="info-card">
+            <p class="label">Location / Region</p>
+            <p class="value">{{ company.location }}</p>
+        </div>
+        <div class="info-card">
+            <p class="label">Project Status</p>
+            <p class="value">{{ company.status }}</p>
+        </div>
+        <div class="info-card">
+            <p class="label">Report Generated</p>
+            <p class="value">{{ generated_at|date:"N j, Y — g:i A" }}</p>
+        </div>
+        {% if company.estimated_area_hectares %}
+        <div class="info-card">
+            <p class="label">Project Area</p>
+            <p class="value">{{ company.estimated_area_hectares }} ha</p>
+        </div>
+        {% endif %}
+        {% if company.expected_carbon_sequestration %}
+        <div class="info-card">
+            <p class="label">Expected Sequestration</p>
+            <p class="value">{{ company.expected_carbon_sequestration }} tCO₂e</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Credit Balance Highlight ── -->
+    <div class="credits-highlight">
+        <div>
+            <p class="lbl">Net Available Credits</p>
+            <p class="val">{{ balance }} <span class="unit">tCO₂e</span></p>
+        </div>
+        <div style="text-align:right;">
+            <p class="lbl">Total Transactions</p>
+            <p class="val" style="font-size:22px;">{{ transactions|length }}</p>
+        </div>
+    </div>
+
+    <!-- ── Transaction History Table ── -->
+    <h2 class="section-title">Transaction History</h2>
+
+    {% if transactions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Credits (tCO₂e)</th>
+                <th>Initiated By</th>
+                <th>IPFS CID</th>
+                <th>TX Hash</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td>{{ tx.created_at|date:"M j, Y H:i" }}</td>
+                <td>
+                    <span class="tx-type tx-{{ tx.transaction_type }}">
+                        {{ tx.transaction_type }}
+                    </span>
+                </td>
+                <td><strong>{{ tx.credits }}</strong></td>
+                <td>{{ tx.initiated_by.username }}</td>
+                <td>
+                    {% if tx.ipfs_cid %}
+                        <span class="cid-link">{{ tx.ipfs_cid|truncatechars:20 }}</span>
+                    {% else %}
+                        <span style="color:#94a3b8">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if tx.tx_hash %}
+                        <span class="cid-link">{{ tx.tx_hash|truncatechars:16 }}</span>
+                    {% else %}
+                        <span style="color:#94a3b8">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p class="no-data">No transactions recorded for this project yet.</p>
+    {% endif %}
+
+</div><!-- /content -->
+
+<!-- ── Footer ──────────────────────── -->
+<div class="footer">
+    <div class="left">
+        <p><strong>CarbonLedger MRV Platform</strong> · Enterprise Carbon Registry</p>
+        <p>This report is auto-generated and represents verified carbon accounting data.</p>
+        <p>Report ID: CL-{{ company.id }}-{{ generated_at|date:"Ymd" }}</p>
+    </div>
+    <div>
+        <p class="brand-tag">🌊 CarbonLedger</p>
+        <p style="font-size:10px;color:#94a3b8;">Powered by Blockchain &amp; AI</p>
+    </div>
+</div>
+
+</body>
+</html>
