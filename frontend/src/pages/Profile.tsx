@@ -24,6 +24,7 @@ interface Company {
   name: string;
   location: string;
   type: string;
+  status?: string;
   wallet_address?: string;
   estimated_area_hectares?: string;
   expected_carbon_sequestration?: string;
@@ -199,9 +200,17 @@ export default function Profile() {
                       <span className="text-[11px] font-semibold px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full">
                         {proj.type}
                       </span>
-                      <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Verified
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          proj.status === 'Verified'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : proj.status === 'Rejected'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-orange-50 text-orange-700'
+                        }`}
+                      >
+                        {proj.status === 'Verified' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                        {proj.status || 'Pending'}
                       </span>
                     </div>
 
