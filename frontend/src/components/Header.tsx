@@ -13,6 +13,7 @@ export default function Header() {
 
   const navItems = [
     { label: 'Home', href: '/' },
+    { label: 'AI Explorer', href: '/ai-explorer' },
     { label: 'Dashboard', href: '/dashboard', protected: true },
     { label: 'Marketplace', href: '/marketplace', protected: false },
     { label: 'Reports', href: '/reports', protected: false },

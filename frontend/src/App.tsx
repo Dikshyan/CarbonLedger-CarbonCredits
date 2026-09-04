@@ -16,6 +16,7 @@ import ProjectRegistration from "@/pages/ProjectRegistration";
 import Marketplace from "@/pages/Marketplace";
 import Reports from "@/pages/Reports";
 import Profile from "@/pages/Profile";
+import AIExplorer from "@/pages/AIExplorer";
 import NotFound from "@/pages/NotFound";
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <main className="flex-1">
               <Switch>
                 <Route path="/" component={Landing} />
+                <Route path="/ai-explorer" component={AIExplorer} />
                 <Route path="/login" component={Login} />
                 <Route path="/register" component={Register} />
                 <Route path="/dashboard" component={Dashboard} />
