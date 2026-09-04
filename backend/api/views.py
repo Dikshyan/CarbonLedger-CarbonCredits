@@ -102,7 +102,17 @@ class MeView(APIView):
     def get(self, request):
         profile = getattr(request.user, "profile", None)
         if profile is None:
-            return Response({"detail": "No business profile linked to this account."}, status=404)
+            role = "Admin" if (request.user.is_superuser or request.user.is_staff) else "NGO Representative"
+            profile, _ = User.objects.get_or_create(
+                auth_user=request.user,
+                defaults={
+                    "username": request.user.username,
+                    "email": request.user.email or f"{request.user.username}@carbonledger.org",
+                    "password": "",
+                    "role": role,
+                    "active": True,
+                }
+            )
         return Response(MeSerializer(profile).data)
 
 
