@@ -1,13 +1,20 @@
-import ee
+import os
+import sys
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import ee
 from gee.auth import initialize_gee
-from gee.sentinel import get_sentinel_image
-from ndvi.ndvi_service import (
+from gee.sentinel import SentinelService
+from ndvi.calculator import (
     calculate_ndvi,
-    ndvi_statistics,
+    calculate_ndwi,
+    calculate_all_indices,
+    index_statistics,
     vegetation_area,
 )
-from carbon.carbon_service import estimate_carbon
+from ndvi.classifier import classify_landcover, classification_area_breakdown
+from carbon.estimator import estimate_carbon_by_class, create_spatial_carbon_image
 
 initialize_gee()
 
@@ -24,16 +31,24 @@ boundary = {
 
 geometry = ee.Geometry(boundary)
 
-image = get_sentinel_image(geometry)
+sentinel_service = SentinelService()
+sentinel_res = sentinel_service.get_composite(
+    geometry=geometry,
+    start_date="2025-01-01",
+    end_date="2025-12-31",
+    cloud_cover_max=20.0,
+)
+image = sentinel_res.image
 
 ndvi = calculate_ndvi(image)
-
-stats = ndvi_statistics(ndvi, geometry)
-
+stats = index_statistics(ndvi, geometry, "NDVI")
 area = vegetation_area(ndvi, geometry)
 
-carbon = estimate_carbon(area)
+classified = classify_landcover(ndvi, calculate_ndwi(image))
+breakdown = classification_area_breakdown(classified, geometry)
+carbon = estimate_carbon_by_class(breakdown)
 
-print(stats)
-print(area)
-print(carbon)
+print("NDVI Stats:", stats)
+print("Vegetation Area (ha):", area)
+print("Carbon Estimate (t):", carbon.total_tonnes)
+

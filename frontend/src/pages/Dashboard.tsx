@@ -87,11 +87,8 @@ export default function Dashboard() {
     (sum: number, project: Company) => sum + availableCredits(transactions, project.id),
     0
   );
-  const verifiedCredits = transactions.filter((t) => t.ipfs_cid).length
-    ? transactions
-        .filter((t) => t.ipfs_cid && projects.some((project: Company) => project.id === t.project))
-        .reduce((sum: number, t: Transaction) => sum + parseFloat(t.credits), 0)
-    : 0;
+  const ipfsCount = transactions.filter((t) => t.ipfs_cid).length;
+  const unitPrice = pricePerCredit > 0 ? pricePerCredit : 18.5;
 
   if (loading) {
     return (
@@ -135,15 +132,15 @@ export default function Dashboard() {
             />
             <StatCard
               label="Pinned to IPFS"
-              value={verifiedCredits.toLocaleString()}
+              value={ipfsCount.toLocaleString()}
               icon={<Award className="h-6 w-6" />}
-              description="Credits with an on-chain record"
+              description="Records with on-chain IPFS CID"
             />
             <StatCard
               label="Potential Revenue"
-              value={`$${(totalCredits * pricePerCredit).toLocaleString()}`}
+              value={`$${(totalCredits * unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               icon={<TrendingUp className="h-6 w-6" />}
-              description={`At $${pricePerCredit}/credit`}
+              description={`At $${unitPrice.toFixed(2)}/credit`}
             />
           </div>
 

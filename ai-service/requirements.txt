@@ -9,3 +9,5 @@ rasterio
 geopandas
 shapely
 python-dotenv
+pytest
+httpx

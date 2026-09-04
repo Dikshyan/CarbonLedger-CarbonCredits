@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 coverage/
+.pnpm-store/
 
 #################################################
 # Python
@@ -25,6 +26,12 @@ __pycache__/
 .env.*
 
 !.env.example
+.env
+.env.local
+backend/.env
+ai-service/.env
+blockchain/.env
+frontend/.env
 
 #################################################
 # Django
@@ -38,6 +45,10 @@ staticfiles/
 #################################################
 
 .pytest_cache/
+*.pyc
+.venv/
+venv/
+*.egg-info/
 
 #################################################
 # VS Code
@@ -71,3 +82,16 @@ typechain-types/
 #################################################
 
 .idea/
+# Blockchain
+blockchain/artifacts/
+blockchain/cache/
+blockchain/ignition/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

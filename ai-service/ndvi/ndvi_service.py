@@ -2,10 +2,13 @@ import ee
 
 
 def calculate_ndvi(image):
-    return image.normalizedDifference(["B8", "B4"]).rename("NDVI")
+    return image.normalizedDifference(
+        ["B8", "B4"]
+    ).rename("NDVI")
 
 
-def ndvi_statistics(ndvi, geometry):
+def calculate_ndvi_statistics(ndvi, geometry):
+
     stats = ndvi.reduceRegion(
         reducer=ee.Reducer.minMax().combine(
             reducer2=ee.Reducer.mean(),
@@ -19,7 +22,11 @@ def ndvi_statistics(ndvi, geometry):
     return stats.getInfo()
 
 
-def vegetation_area(ndvi, geometry, threshold=0.4):
+def calculate_vegetation_area(
+    ndvi,
+    geometry,
+    threshold=0.4
+):
 
     vegetation = ndvi.gt(threshold)
 
