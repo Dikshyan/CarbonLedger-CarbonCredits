@@ -69,7 +69,8 @@ export default function Reports() {
         localStorage.getItem('access_token') ||
         localStorage.getItem('authToken');
 
-      const response = await fetch(`http://localhost:8000/api/v1/CarbonLedger/${projectId}/report/`, {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/api(\/v1)?\/?$/, '');
+      const response = await fetch(`${apiBase}/api/v1/CarbonLedger/${projectId}/report/`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
         },

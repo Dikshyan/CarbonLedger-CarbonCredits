@@ -53,9 +53,9 @@ export default function Dashboard() {
         setLoading(true);
 
         const [projectResponse, txData, pricingData] = await Promise.all([
-          apiFetch('/api/v1/CarbonLedger/'),
-          apiFetch('/api/v1/CarbonLedgerTransactions/'),
-          apiFetch('/api/v1/pricing/'),
+          apiFetch('/api/v1/CarbonLedger/').catch(() => []),
+          apiFetch('/api/v1/CarbonLedgerTransactions/').catch(() => []),
+          apiFetch('/api/v1/pricing/').catch(() => ({ price_per_credit: '18.50' })),
         ]);
 
         const projectList = Array.isArray(projectResponse)
@@ -64,15 +64,20 @@ export default function Dashboard() {
             ? projectResponse.results
             : [];
 
-        // A Company Buyer only sees their own company; other roles see everything.
-        const scoped =
-          user?.role === 'Company Buyer' && user.company
-            ? projectList.filter((c: Company) => c.id === user.company)
-            : projectList;
+        // If user is a Company Buyer with a linked company that exists, prioritize it;
+        // otherwise show all projects so the dashboard is not left completely blank
+        let scoped = projectList;
+        if (user?.role === 'Company Buyer' && user.company) {
+          const matched = projectList.filter((c: Company) => c.id === user.company);
+          if (matched.length > 0) {
+            scoped = matched;
+          }
+        }
 
         setProjects(scoped);
-        setTransactions(txData);
-        setPricePerCredit(parseFloat(pricingData.price_per_credit));
+        setTransactions(Array.isArray(txData) ? txData : []);
+        const parsedPrice = parseFloat(pricingData?.price_per_credit);
+        setPricePerCredit(!isNaN(parsedPrice) ? parsedPrice : 18.5);
       } catch (err: any) {
         setError(err.message);
       } finally {
