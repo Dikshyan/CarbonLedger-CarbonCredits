@@ -27,7 +27,7 @@ try:
     WEASYPRINT_AVAILABLE = True
     logger.info("[reports] WeasyPrint PDF generation available.")
 except Exception as _e:
-    logger.warning("[reports] WeasyPrint unavailable: %s", _e)
+    logger.info("[reports] WeasyPrint unavailable (falling back to print-ready HTML): %s", _e)
 
 
 # ─── pdfkit / wkhtmltopdf ──────────────────────────────────────────────────────
@@ -41,9 +41,9 @@ try:
         PDFKIT_AVAILABLE = True
         logger.info("[reports] pdfkit/wkhtmltopdf PDF generation available at %s.", wk_path)
     else:
-        logger.warning("[reports] wkhtmltopdf binary not found — pdfkit unavailable.")
+        logger.info("[reports] wkhtmltopdf binary not found — pdfkit unavailable.")
 except Exception as _e:
-    logger.warning("[reports] pdfkit unavailable: %s", _e)
+    logger.info("[reports] pdfkit unavailable: %s", _e)
 
 
 def render_pdf(template_name: str, context: dict, filename: str) -> HttpResponse:
