@@ -169,3 +169,94 @@ export async function analyzeArea(
   };
 }
 
+export interface ProjectRegistrationDraft {
+  projectName: string;
+  location: string;
+  latitude: string;
+  longitude: string;
+  estimatedArea: string;
+  expectedCarbonSequestration: string;
+  projectScope: string;
+  objectives: string;
+  estimatedBudget: string;
+  targetDemographics: string;
+  description: string;
+  satellite: string;
+  meanNdvi: number;
+}
+
+export async function extractProjectDraftData(
+  analysis: AnalysisResult,
+  options: {
+    locationLabel?: string;
+    center?: [number, number];
+    areaHectares?: number;
+  }
+): Promise<ProjectRegistrationDraft> {
+  const loc = options.locationLabel || 'Coastal Blue Zone';
+  const area = options.areaHectares || analysis.vegetation?.area_hectares || 500;
+  const carbon = analysis.carbon.total_tonnes || area * 240;
+  const meanNdvi = analysis.indices.ndvi?.mean ?? 0.52;
+  const lat = options.center ? options.center[0] : 21.9497;
+  const lon = options.center ? options.center[1] : 88.9320;
+
+  // Attempt to call AI FastAPI service if available
+  try {
+    const res = await fetch('http://localhost:8001/api/extract-project-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_name: `${loc} Blue Carbon & Coastal Restoration`,
+        location_label: loc,
+        area_hectares: area,
+        total_carbon_tonnes: carbon,
+        mean_ndvi: meanNdvi,
+        latitude: lat,
+        longitude: lon,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        projectName: data.project_name,
+        location: data.location,
+        latitude: String(data.latitude),
+        longitude: String(data.longitude),
+        estimatedArea: String(data.estimated_area_hectares),
+        expectedCarbonSequestration: String(data.expected_carbon_sequestration),
+        projectScope: data.project_scope,
+        objectives: data.objectives,
+        estimatedBudget: data.estimated_budget,
+        targetDemographics: data.target_demographics,
+        description: data.description,
+        satellite: analysis.satellite,
+        meanNdvi,
+      };
+    }
+  } catch {
+    // Fall back to client calculation
+  }
+
+  const restorationCost = area * 1250;
+  const mrvCost = 25000 + area * 25;
+  const communityFund = (restorationCost + mrvCost) * 0.1;
+  const totalBudget = restorationCost + mrvCost + communityFund;
+
+  return {
+    projectName: `${loc} Blue Carbon & Coastal Restoration`,
+    location: loc,
+    latitude: lat.toFixed(6),
+    longitude: lon.toFixed(6),
+    estimatedArea: Math.round(area).toString(),
+    expectedCarbonSequestration: Math.round(carbon).toString(),
+    projectScope: `Comprehensive conservation, hydrological restoration, and blue carbon sequestration across ${Math.round(area).toLocaleString()} hectares in the ${loc} coastal ecosystem. The project deploys satellite-guided remote sensing (Sentinel-2 multi-spectral NDVI/NDWI) combined with community-led nursery propagation to rehabilitate degraded mangrove fringes, preserve existing dense vegetation, and protect intertidal wetlands from erosion.`,
+    objectives: `1. Carbon Sequestration: Capture and store an estimated ${Math.round(carbon).toLocaleString()} tCO₂e in aboveground biomass and tidal sediment sinks.\n2. Canopy Regeneration: Restore and actively monitor ${Math.round(area).toLocaleString()} hectares of coastal mangrove and wetland habitats.\n3. Continuous MRV Compliance: Implement periodic multi-spectral satellite audits (NDVI/EVI indices) paired with independent field verifications.\n4. Climate Resilience: Enhance coastal storm-surge barriers and establish sustainable economic livelihoods for adjacent coastal communities.`,
+    estimatedBudget: `$${Math.round(totalBudget).toLocaleString()} USD (Restoration: $${Math.round(restorationCost).toLocaleString()}, MRV & Verification: $${Math.round(mrvCost).toLocaleString()}, Community Stewardship: $${Math.round(communityFund).toLocaleString()})`,
+    targetDemographics: `Coastal artisanal fishing communities, local indigenous wetland collectives, mangrove forestry self-help groups (SHGs), and youth climate monitoring stewards in the ${loc} region vulnerable to cyclones and tidal erosion.`,
+    description: `Multi-spectral satellite baseline analysis performed via Sentinel-2 imagery. Estimated vegetation canopy health reflects a mean NDVI of ${meanNdvi.toFixed(2)}. The area supports a total estimated blue carbon biomass of ${Math.round(carbon).toLocaleString()} tonnes CO₂e with high soil organic carbon retention potential. Verification protocol is aligned with Verra VM0033 / Plan Vivo coastal wetland standards.`,
+    satellite: analysis.satellite,
+    meanNdvi,
+  };
+}
+
+

@@ -1,13 +1,14 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { MapContainer, Polygon, TileLayer, CircleMarker, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 
 
 import { area as turfArea } from '@turf/turf';
 import type { Feature, Polygon as GeoPolygon } from 'geojson';
 import 'leaflet/dist/leaflet.css';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { analyzeArea, type AnalysisResult, type IndexStatItem } from '@/services/analysisApi';
+import { analyzeArea, extractProjectDraftData, type AnalysisResult, type IndexStatItem } from '@/services/analysisApi';
 
 type GeoPoint = [number, number];
 type LocationPreset = {
@@ -106,11 +107,14 @@ function MapViewController({
 }
 
 export default function AIExplorer() {
+  const [, setLocation] = useLocation();
   const [selectedLocation, setSelectedLocation] = useState('Sundarbans');
   const [flyToTarget, setFlyToTarget] = useState<{ location: LocationPreset; id: number } | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState('');
   const [drawnPoints, setDrawnPoints] = useState<GeoPoint[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
 
@@ -143,6 +147,38 @@ export default function AIExplorer() {
     if (!polygon) return null;
     return turfArea(polygon) / 10_000;
   }, [polygon]);
+
+  const centerCoord = useMemo<[number, number]>(() => {
+    if (drawnPoints.length === 0) {
+      const match = locationPresets.find((l) => l.label === selectedLocation) || locationPresets[0];
+      return match.center;
+    }
+    const avgLat = drawnPoints.reduce((sum, p) => sum + p[1], 0) / drawnPoints.length;
+    const avgLng = drawnPoints.reduce((sum, p) => sum + p[0], 0) / drawnPoints.length;
+    return [avgLat, avgLng];
+  }, [drawnPoints, selectedLocation]);
+
+  const handleExportToRegistration = async () => {
+    if (!analysis) return;
+    setExtracting(true);
+    setError('');
+    try {
+      const draft = await extractProjectDraftData(analysis, {
+        locationLabel: selectedLocation,
+        center: centerCoord,
+        areaHectares: areaHectares || undefined,
+      });
+      sessionStorage.setItem('ai_project_draft', JSON.stringify(draft));
+      setExportSuccess('AI metrics extracted! Pre-populating Project Application form...');
+      setTimeout(() => {
+        setLocation('/projects');
+      }, 700);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to extract project fields from AI output.');
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   const handlePointAdd = (point: GeoPoint) => {
     setDrawnPoints((prev) => [...prev, point]);
@@ -545,6 +581,44 @@ export default function AIExplorer() {
           </div>
 
           <h3 className="mt-1 text-xl font-bold text-slate-900">Environmental Dashboard</h3>
+
+          {/* AI Project Data Extractor Action Card */}
+          <div className="mt-3 p-3 bg-gradient-to-br from-emerald-50 via-teal-50 to-blue-50 border border-emerald-300 rounded-xl shadow-xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-emerald-600 animate-pulse" />
+                AI Project Registration Pipeline
+              </span>
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                Auto-Extract
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-snug mb-2.5">
+              Automatically extract project scope, objectives, estimated budget, and target demographics directly to pre-populate the registration application.
+            </p>
+            {exportSuccess ? (
+              <div className="p-2 bg-emerald-100/90 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-emerald-700 flex-shrink-0" />
+                <span>{exportSuccess}</span>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={handleExportToRegistration}
+                disabled={extracting}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                {extracting ? (
+                  <span>Extracting AI Pipeline Fields...</span>
+                ) : (
+                  <>
+                    <span>Apply Insights to Project Registration</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
 
           {/* Key Metrics Grid */}
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
