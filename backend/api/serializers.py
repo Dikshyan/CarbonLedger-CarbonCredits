@@ -6,7 +6,7 @@ from django.db import transaction as db_transaction
 
 from rest_framework import serializers
 
-from api.models import Company, User, CarbonTransaction, PricingConfig
+from api.models import Company, User, CarbonTransaction, PricingConfig, VerificationAssignment
 from api.models import get_available_credits
 
 from .pinata import pin_json, PinataError
@@ -14,6 +14,8 @@ from blockchain.client import transfer_credits, BlockchainServiceError
 
 
 class CompanySerializers(serializers.ModelSerializer):
+    reviewed_by_username = serializers.CharField(source="reviewed_by.username", read_only=True)
+
     class Meta:
         model = Company
         fields = "__all__"
@@ -21,19 +23,28 @@ class CompanySerializers(serializers.ModelSerializer):
 
 class UserSerializers(serializers.ModelSerializer):
     id = serializers.ReadOnlyField()
+    active_task_count = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
-    "id",
-    "username",
-    "email",
-    "role",
-    "added_date",
-    "active",
-    "auth_user",
-    "company",
-    ]
+            "id",
+            "username",
+            "email",
+            "role",
+            "region",
+            "domain_expertise",
+            "active_task_count",
+            "added_date",
+            "active",
+            "auth_user",
+            "company",
+        ]
+
+    def get_active_task_count(self, obj):
+        if obj.role == "Verifier":
+            return obj.assigned_verifications.filter(status__in=["Assigned", "In Progress"]).count()
+        return 0
 
     def validate(self, data):
         role = data.get("role", getattr(self.instance, "role", None))
@@ -57,8 +68,11 @@ class RegisterSerializer(serializers.Serializer):
             "Government Official",
             "Company Buyer",
             "NGO Representative",
+            "Verifier",
         ]
     )
+    region = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True)
+    domain_expertise = serializers.CharField(max_length=200, required=False, allow_blank=True, allow_null=True)
     company = serializers.PrimaryKeyRelatedField(
         queryset=Company.objects.all(),
         required=False,
@@ -94,6 +108,8 @@ class RegisterSerializer(serializers.Serializer):
             email=validated_data["email"],
             password="",
             role=validated_data["role"],
+            region=validated_data.get("region") or "",
+            domain_expertise=validated_data.get("domain_expertise") or "",
             company=validated_data.get("company"),
             active=True,
         )
@@ -109,8 +125,34 @@ class MeSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "role",
+            "region",
+            "domain_expertise",
             "company",
             "active",
+        ]
+
+
+class VerificationAssignmentSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+    project_location = serializers.CharField(source="project.location", read_only=True)
+    project_type = serializers.CharField(source="project.type", read_only=True)
+    project_area = serializers.DecimalField(source="project.estimated_area_hectares", max_digits=10, decimal_places=2, read_only=True)
+    project_carbon = serializers.DecimalField(source="project.expected_carbon_sequestration", max_digits=12, decimal_places=2, read_only=True)
+    project_status = serializers.CharField(source="project.status", read_only=True)
+    verifier_name = serializers.CharField(source="verifier.username", read_only=True)
+    verifier_email = serializers.CharField(source="verifier.email", read_only=True)
+    verifier_region = serializers.CharField(source="verifier.region", read_only=True)
+    verifier_expertise = serializers.CharField(source="verifier.domain_expertise", read_only=True)
+    assigned_by_name = serializers.CharField(source="assigned_by.username", read_only=True)
+
+    class Meta:
+        model = VerificationAssignment
+        fields = "__all__"
+        read_only_fields = [
+            "id",
+            "assigned_date",
+            "assigned_by",
         ]
 
 

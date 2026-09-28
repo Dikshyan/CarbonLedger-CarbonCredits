@@ -24,6 +24,8 @@ interface RegisterPayload {
   password: string;
   role: string;
   company?: number;
+  region?: string;
+  domain_expertise?: string;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";

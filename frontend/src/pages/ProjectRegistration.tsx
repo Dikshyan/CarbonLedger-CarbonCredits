@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, AlertCircle, Satellite, Globe } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, CheckCircle2, AlertCircle, Satellite, Globe, Target, DollarSign, Users2, FileText, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
+import { extractProjectDraftData } from '@/services/analysisApi';
 
 interface AIEstimateResult {
   project_name: string;
@@ -36,11 +37,58 @@ export default function ProjectRegistration() {
     estimatedArea: '500',
     expectedCarbonSequestration: '200000',
     walletAddress: '',
+    // AI Extracted Pipeline Fields
+    projectScope: '',
+    objectives: '',
+    estimatedBudget: '',
+    targetDemographics: '',
+    // Credential & Verification Fields
+    registrationNumber: '',
+    contactEmail: '',
+    contactPhone: '',
+    credentialDocument: '',
   });
+
+  const [aiDraftInfo, setAiDraftInfo] = useState<{
+    source: string;
+    satellite?: string;
+    meanNdvi?: number;
+  } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Auto-hydrate from AI Explorer if user exported from the map
+  useEffect(() => {
+    const stored = sessionStorage.getItem('ai_project_draft');
+    if (stored) {
+      try {
+        const draft = JSON.parse(stored);
+        setFormData(prev => ({
+          ...prev,
+          projectName: draft.projectName || prev.projectName,
+          location: draft.location || prev.location,
+          latitude: draft.latitude || prev.latitude,
+          longitude: draft.longitude || prev.longitude,
+          estimatedArea: draft.estimatedArea || prev.estimatedArea,
+          expectedCarbonSequestration: draft.expectedCarbonSequestration || prev.expectedCarbonSequestration,
+          projectScope: draft.projectScope || prev.projectScope,
+          objectives: draft.objectives || prev.objectives,
+          estimatedBudget: draft.estimatedBudget || prev.estimatedBudget,
+          targetDemographics: draft.targetDemographics || prev.targetDemographics,
+          description: draft.description || prev.description,
+        }));
+        setAiDraftInfo({
+          source: draft.location || 'AI Explorer',
+          satellite: draft.satellite || 'Sentinel-2',
+          meanNdvi: draft.meanNdvi,
+        });
+      } catch (err) {
+        console.error('Failed to parse AI project draft', err);
+      }
+    }
+  }, []);
 
   // AI Estimation state
   const [aiLoading, setAiLoading] = useState(false);
@@ -50,6 +98,67 @@ export default function ProjectRegistration() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleQuickExtractPreset = async (presetName: string) => {
+    const presets: Record<string, { lat: number; lng: number; area: number; carbon: number; ndvi: number }> = {
+      'Sundarbans': { lat: 21.9497, lng: 88.9320, area: 1250, carbon: 312500, ndvi: 0.68 },
+      'Mumbai Coast': { lat: 19.0760, lng: 72.8777, area: 420, carbon: 98000, ndvi: 0.44 },
+      'Western Ghats': { lat: 10.1632, lng: 77.0607, area: 850, carbon: 220000, ndvi: 0.72 },
+      'Amazon Basin': { lat: -3.4653, lng: -62.2159, area: 5000, carbon: 1450000, ndvi: 0.82 },
+    };
+
+    const target = presets[presetName] || presets['Sundarbans'];
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const simulatedAnalysis = {
+        status: 'success' as const,
+        project_id: 'preset_' + Date.now(),
+        satellite: 'Sentinel-2 Multispectral',
+        image_count: 24,
+        analysis_period: { start_date: '2025-01-01', end_date: '2025-12-31' },
+        indices: {
+          ndvi: { min: 0.1, mean: target.ndvi, max: 0.85, stdDev: 0.15 },
+        },
+        classification: [],
+        carbon: {
+          total_tonnes: target.carbon,
+          by_class: [],
+        },
+      };
+
+      const draft = await extractProjectDraftData(simulatedAnalysis as any, {
+        locationLabel: presetName,
+        center: [target.lat, target.lng],
+        areaHectares: target.area,
+      });
+
+      setFormData(prev => ({
+        ...prev,
+        projectName: draft.projectName,
+        location: draft.location,
+        latitude: draft.latitude,
+        longitude: draft.longitude,
+        estimatedArea: draft.estimatedArea,
+        expectedCarbonSequestration: draft.expectedCarbonSequestration,
+        projectScope: draft.projectScope,
+        objectives: draft.objectives,
+        estimatedBudget: draft.estimatedBudget,
+        targetDemographics: draft.targetDemographics,
+        description: draft.description,
+      }));
+
+      setAiDraftInfo({
+        source: presetName,
+        satellite: 'Sentinel-2 Multispectral',
+        meanNdvi: target.ndvi,
+      });
+    } catch (err: any) {
+      setAiError(err.message || 'Failed to extract preset data');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleRunAIEstimation = async () => {
@@ -105,6 +214,16 @@ export default function ProjectRegistration() {
         longitude: parseFloat(formData.longitude) || null,
         estimated_area_hectares: parseFloat(formData.estimatedArea) || null,
         expected_carbon_sequestration: parseFloat(formData.expectedCarbonSequestration) || null,
+        // AI Extracted fields
+        project_scope: formData.projectScope || undefined,
+        objectives: formData.objectives || undefined,
+        estimated_budget: formData.estimatedBudget || undefined,
+        target_demographics: formData.targetDemographics || undefined,
+        // Credential & Verification fields
+        registration_number: formData.registrationNumber || undefined,
+        contact_email: formData.contactEmail || undefined,
+        contact_phone: formData.contactPhone || undefined,
+        credential_document: formData.credentialDocument || undefined,
       };
 
       const result = await apiFetch('/CarbonLedger/', {
@@ -124,6 +243,7 @@ export default function ProjectRegistration() {
         }).catch(() => {});
       }
 
+      sessionStorage.removeItem('ai_project_draft');
       setSuccess(`Project "${result.name || formData.projectName}" registered successfully! Initial credits issued.`);
       setTimeout(() => {
         setLocation('/dashboard');
@@ -175,41 +295,96 @@ export default function ProjectRegistration() {
               </div>
             )}
 
+            {/* AI Explorer Pre-population Banner */}
+            {aiDraftInfo && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-300 rounded-xl flex items-start justify-between gap-3 text-sm shadow-xs">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-emerald-600 text-white rounded-lg mt-0.5 shadow-xs">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-slate-900 text-base">Pre-populated via AI Explorer</p>
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full">
+                        {aiDraftInfo.satellite || 'Sentinel-2 Satellite Feed'}
+                      </span>
+                    </div>
+                    <p className="text-slate-600 text-xs mt-1">
+                      Key fields including <strong>project scope, quantifiable objectives, algorithmic budget, and target demographics</strong> were automatically extracted from the <strong>{aiDraftInfo.source}</strong> spatial environmental analysis. Review and tailor them below.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAiDraftInfo(null);
+                    sessionStorage.removeItem('ai_project_draft');
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1"
+                  title="Dismiss AI Banner"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
             {/* AI Estimation Card */}
             <div className="mb-8 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-blue-900 font-semibold text-base">
                   <Satellite className="h-5 w-5 text-blue-600" />
-                  <span>AI Satellite Carbon Estimator</span>
+                  <span>AI Satellite Carbon Estimator & Pipeline Extractor</span>
                 </div>
                 <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 font-medium rounded-full">
-                  FastAPI Port 8001
+                  FastAPI Port 8001 / Sentinel-2
                 </span>
               </div>
               <p className="text-xs text-slate-600 mb-4">
-                Uses Google Earth Engine & Sentinel-2 NDVI satellite imagery (with IPCC wetlands density fallback) to automatically estimate sequestered carbon.
+                Uses Google Earth Engine & Sentinel-2 multi-spectral NDVI/NDWI imagery to automatically estimate sequestered carbon and extract project planning fields.
               </p>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleRunAIEstimation}
-                disabled={aiLoading}
-                className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
-              >
-                {aiLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Running Satellite Analysis...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
-                    Estimate Carbon for Current Coordinates
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRunAIEstimation}
+                  disabled={aiLoading}
+                  className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+                >
+                  {aiLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Running Satellite Analysis...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
+                      Estimate Carbon for Current Coordinates
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Quick Preset Selector for instant pre-population */}
+              <div className="mt-4 pt-3 border-t border-blue-200">
+                <p className="text-[11px] font-semibold text-blue-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 text-blue-600" />
+                  Quick AI Explorer Presets (Auto-Extract All Fields):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {['Sundarbans', 'Mumbai Coast', 'Western Ghats', 'Amazon Basin'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleQuickExtractPreset(preset)}
+                      className="text-xs px-2.5 py-1 bg-white hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-md font-medium transition shadow-2xs"
+                    >
+                      ⚡ Extract {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {aiError && (
                 <p className="mt-3 text-xs text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
@@ -381,6 +556,152 @@ export default function ProjectRegistration() {
                   onChange={handleChange}
                   className="mt-2 font-mono text-xs"
                 />
+              </div>
+
+              {/* AI Extracted Project Planning Details Section */}
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    <span>AI Extracted Project Planning & Analytics</span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-medium px-2 py-0.5 rounded-full">
+                    Pre-populated
+                  </span>
+                </div>
+
+                <div>
+                  <Label htmlFor="projectScope" className="text-slate-700 font-medium text-xs flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-slate-500" />
+                    Project Scope & Ecosystem Rationale
+                  </Label>
+                  <Textarea
+                    id="projectScope"
+                    name="projectScope"
+                    placeholder="Comprehensive conservation, hydrological restoration, and blue carbon sequestration..."
+                    value={formData.projectScope}
+                    onChange={handleChange}
+                    className="mt-1.5 min-h-20 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="objectives" className="text-slate-700 font-medium text-xs flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-slate-500" />
+                    Quantifiable Conservation & MRV Objectives
+                  </Label>
+                  <Textarea
+                    id="objectives"
+                    name="objectives"
+                    placeholder="1. Carbon Sequestration targets... 2. Canopy regeneration... 3. Continuous satellite MRV..."
+                    value={formData.objectives}
+                    onChange={handleChange}
+                    className="mt-1.5 min-h-20 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estimatedBudget" className="text-slate-700 font-medium text-xs flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5 text-slate-500" />
+                      Estimated Project Budget (USD)
+                    </Label>
+                    <Input
+                      id="estimatedBudget"
+                      name="estimatedBudget"
+                      placeholder="e.g., $750,000 USD (Restoration + MRV)"
+                      value={formData.estimatedBudget}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="targetDemographics" className="text-slate-700 font-medium text-xs flex items-center gap-1.5">
+                      <Users2 className="h-3.5 w-3.5 text-slate-500" />
+                      Target Demographics & Coastal Communities
+                    </Label>
+                    <Input
+                      id="targetDemographics"
+                      name="targetDemographics"
+                      placeholder="e.g., Artisanal fishing cooperatives, coastal indigenous SHGs"
+                      value={formData.targetDemographics}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Organization Credential & Onboarding Verification Section */}
+              <div className="p-5 bg-blue-50/50 border border-blue-200 rounded-xl space-y-4">
+                <div className="flex items-center justify-between border-b border-blue-200 pb-3">
+                  <div className="flex items-center gap-2 text-slate-900 font-semibold text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                    <span>Organization Credentials & Verification Documents</span>
+                  </div>
+                  <span className="text-[10px] bg-blue-100 text-blue-800 font-medium px-2 py-0.5 rounded-full">
+                    Admin Reviewed
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="registrationNumber" className="text-slate-700 font-medium text-xs">
+                      Official Registration / License / NGO ID
+                    </Label>
+                    <Input
+                      id="registrationNumber"
+                      name="registrationNumber"
+                      placeholder="e.g. NGO-IND-2024-8849"
+                      value={formData.registrationNumber}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="contactEmail" className="text-slate-700 font-medium text-xs">
+                      Official Contact Email
+                    </Label>
+                    <Input
+                      id="contactEmail"
+                      name="contactEmail"
+                      type="email"
+                      placeholder="e.g. registry@sundarbans-ngo.org"
+                      value={formData.contactEmail}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="contactPhone" className="text-slate-700 font-medium text-xs">
+                      Contact Phone
+                    </Label>
+                    <Input
+                      id="contactPhone"
+                      name="contactPhone"
+                      placeholder="e.g. +91 98765 43210"
+                      value={formData.contactPhone}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="credentialDocument" className="text-slate-700 font-medium text-xs">
+                      Credential Document URL (Charter / Accreditation)
+                    </Label>
+                    <Input
+                      id="credentialDocument"
+                      name="credentialDocument"
+                      placeholder="https://ipfs.io/ipfs/... or accreditation link"
+                      value={formData.credentialDocument}
+                      onChange={handleChange}
+                      className="mt-1.5 text-xs"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Description */}

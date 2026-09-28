@@ -21,12 +21,12 @@ export default function Header() {
     { label: 'Analytics', href: '/maps-charts', protected: true },
     { label: 'History', href: '/carbon-history', protected: true },
     { label: 'Profile', href: '/profile', protected: true },
-    { label: 'Admin', href: '/admin', protected: true, adminOnly: true },
+    { label: user?.role === 'Government Official' ? 'Gov Oversight' : 'Admin', href: '/admin', protected: true, adminOnly: true },
   ];
 
   const visibleNavItems = navItems.filter(item => {
     if (item.protected && !isAuthenticated) return false;
-    if (item.adminOnly && user?.role !== 'Admin') return false;
+    if (item.adminOnly && user?.role !== 'Admin' && user?.role !== 'Government Official') return false;
     return true;
   });
 

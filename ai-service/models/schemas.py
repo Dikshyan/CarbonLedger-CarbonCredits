@@ -64,3 +64,29 @@ class AnalysisResult(BaseModel):
     carbon: CarbonResult
     tile_urls: Optional[TileUrls] = None
 
+
+class ProjectDataExtractionRequest(BaseModel):
+    project_name: Optional[str] = None
+    location_label: Optional[str] = "Sundarbans Coastal Biosphere"
+    area_hectares: Optional[float] = 500.0
+    total_carbon_tonnes: Optional[float] = 120000.0
+    mean_ndvi: Optional[float] = 0.52
+    latitude: Optional[float] = 21.9497
+    longitude: Optional[float] = 88.9320
+    classification: Optional[List[ClassAreaItem]] = None
+
+
+class ProjectDataExtractionResponse(BaseModel):
+    project_name: str
+    location: str
+    latitude: float
+    longitude: float
+    estimated_area_hectares: float
+    expected_carbon_sequestration: float
+    project_scope: str
+    objectives: str
+    estimated_budget: str
+    target_demographics: str
+    description: str
+
+

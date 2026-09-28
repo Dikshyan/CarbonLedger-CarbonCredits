@@ -1,7 +1,7 @@
 from django.urls import path, include
 from api.views import (
     CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView,
-    RegisterView, MeView, PricingConfigView,
+    RegisterView, MeView, PricingConfigView, VerificationAssignmentViewSet,
 )
 from rest_framework import routers
 
@@ -20,6 +20,11 @@ router.register(
     r'CarbonLedgerTransactions',
     CarbonTransactionViewSet,
     basename='carbontransaction'
+)
+router.register(
+    r'VerificationAssignments',
+    VerificationAssignmentViewSet,
+    basename='verificationassignment'
 )
 
 urlpatterns = [
