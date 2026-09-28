@@ -1,82 +1,24 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { apiFetch } from '@/lib/api';
 import {
   Globe,
-  Maximize2,
   MapPin,
   CheckCircle2,
   Clock,
   AlertTriangle,
-  ZoomIn,
   RefreshCw,
+  Search,
+  Building2,
+  Coins,
+  Layers,
+  BarChart3,
+  PieChart as PieIcon,
+  Filter,
 } from 'lucide-react';
-import {
-  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
-
-// Fix default Leaflet marker icon paths (required with bundlers)
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:       'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-// Create crisp, self-contained SVG pins that never fail to load due to 3rd-party CDN blocks
-function createMarkerIcon(status: string, isSelected: boolean = false) {
-  let bg = '#10b981'; // Emerald 500
-  let symbolSvg = `
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>`;
-
-  if (status === 'Pending') {
-    bg = '#f59e0b'; // Amber 500
-    symbolSvg = `
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>`;
-  } else if (status === 'Rejected') {
-    bg = '#ef4444'; // Rose 500
-    symbolSvg = `
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>`;
-  }
-
-  const ringStyle = isSelected
-    ? `box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.6); transform: scale(1.15);`
-    : ``;
-
-  const html = `
-    <div style="position: relative; width: 32px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.35)); transition: transform 0.2s; ${ringStyle}">
-      <svg width="32" height="40" viewBox="0 0 34 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M17 0C7.611 0 0 7.611 0 17C0 27.5 14.5 39.5 16.2 40.9C16.65 41.28 17.35 41.28 17.8 40.9C19.5 39.5 34 27.5 34 17C34 7.611 26.389 0 17 0Z" fill="${bg}"/>
-        <circle cx="17" cy="16" r="11" fill="rgba(255,255,255,0.25)"/>
-      </svg>
-      <div style="position: absolute; top: 9px; left: 10px; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center;">
-        ${symbolSvg}
-      </div>
-    </div>
-  `;
-
-  return L.divIcon({
-    html,
-    className: 'custom-leaflet-marker',
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-    popupAnchor: [0, -38],
-  });
-}
 
 interface Company {
   id: number;
@@ -94,11 +36,19 @@ interface Transaction {
   transaction_type: string;
 }
 
-const ADDS      = ['Issuance', 'Recieve'];
-const SUBTRACTS = ['Transfer', 'Cancellation'];
-const COLORS    = ['#1e5a8e', '#0ea5a5', '#06b6d4', '#0891b2', '#64748b'];
+const ADDS = ['Issuance', 'Recieve'];
+const SUBTRACTS = ['Transfer', 'Cancellation', 'Cancellatiobn'];
 
-// Coordinates validation helper
+const PALETTE = [
+  'bg-emerald-500 text-emerald-500',
+  'bg-teal-500 text-teal-500',
+  'bg-sky-500 text-sky-500',
+  'bg-indigo-500 text-indigo-500',
+  'bg-cyan-500 text-cyan-500',
+  'bg-blue-500 text-blue-500',
+  'bg-amber-500 text-amber-500',
+];
+
 function isValidCoordinate(lat: string | null | undefined, lng: string | null | undefined): boolean {
   if (lat == null || lng == null) return false;
   const nLat = parseFloat(lat);
@@ -113,79 +63,17 @@ function isValidCoordinate(lat: string | null | undefined, lng: string | null | 
   );
 }
 
-// Default global center if no projects
-const GLOBAL_DEFAULT_CENTER: [number, number] = [20.0, 0.0];
-const GLOBAL_DEFAULT_ZOOM = 2;
-
-// Sub-component controlling viewport bounds & transitions
-function MapController({
-  projects,
-  selectedProject,
-  viewMode,
-  triggerFit,
-}: {
-  projects: Company[];
-  selectedProject: Company | null;
-  viewMode: 'fit' | 'global' | 'project';
-  triggerFit: number;
-}) {
-  const map = useMap();
-
-  // Invalidate size once map is attached to avoid blank tile render bugs
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [map]);
-
-  useEffect(() => {
-    if (viewMode === 'global') {
-      map.flyTo(GLOBAL_DEFAULT_CENTER, GLOBAL_DEFAULT_ZOOM, { duration: 1.2 });
-      return;
-    }
-
-    if (viewMode === 'project' && selectedProject && isValidCoordinate(selectedProject.latitude, selectedProject.longitude)) {
-      const lat = parseFloat(selectedProject.latitude!);
-      const lng = parseFloat(selectedProject.longitude!);
-      map.flyTo([lat, lng], 10, { duration: 1.2 });
-      return;
-    }
-
-    // Default 'fit' mode: auto-fit all global exposures
-    if (projects.length === 0) {
-      map.flyTo(GLOBAL_DEFAULT_CENTER, GLOBAL_DEFAULT_ZOOM, { duration: 1 });
-    } else if (projects.length === 1) {
-      const lat = parseFloat(projects[0].latitude!);
-      const lng = parseFloat(projects[0].longitude!);
-      map.flyTo([lat, lng], 8, { duration: 1.2 });
-    } else {
-      const bounds = L.latLngBounds(
-        projects.map((p) => [parseFloat(p.latitude!), parseFloat(p.longitude!)])
-      );
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
-    }
-  }, [projects, selectedProject, viewMode, triggerFit, map]);
-
-  return null;
-}
-
 export default function MapsCharts() {
-  const [isMounted, setIsMounted]       = useState(false);
-  const [companies, setCompanies]       = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [error, setError]               = useState('');
-  
-  // Interactive view state
-  const [viewMode, setViewMode]         = useState<'fit' | 'global' | 'project'>('fit');
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
-  const [triggerFit, setTriggerFit]     = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [mapType, setMapType]           = useState<'vector' | 'satellite'>('satellite');
+  // UI state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'Verified' | 'Pending' | 'Rejected'>('ALL');
 
   useEffect(() => {
-    setIsMounted(true);
     Promise.all([
       apiFetch('/api/v1/CarbonLedger/'),
       apiFetch('/api/v1/CarbonLedgerTransactions/'),
@@ -198,63 +86,94 @@ export default function MapsCharts() {
       .finally(() => setLoading(false));
   }, []);
 
-  const mappable = useMemo(
-    () => companies.filter((c) => isValidCoordinate(c.latitude, c.longitude)),
-    [companies]
-  );
-
-  const unmappableCount = companies.length - mappable.length;
-
-  const selectedProject = useMemo(
-    () => companies.find((c) => c.id === selectedProjectId) || null,
-    [companies, selectedProjectId]
-  );
-
   const availableCredits = (companyId: number) =>
     transactions
       .filter((t) => t.project === companyId)
       .reduce((sum, t) => {
         const amt = parseFloat(t.credits);
-        if (ADDS.includes(t.transaction_type))      return sum + amt;
+        if (ADDS.includes(t.transaction_type)) return sum + amt;
         if (SUBTRACTS.includes(t.transaction_type)) return sum - amt;
         return sum;
       }, 0);
 
-  const creditsByProject = companies
-    .map((c) => ({ name: c.name, credits: availableCredits(c.id) }))
-    .filter((c) => c.credits !== 0);
+  const totalCreditsAllProjects = useMemo(() => {
+    return companies.reduce(
+      (sum, c) => sum + Math.max(0, availableCredits(c.id)),
+      0
+    );
+  }, [companies, transactions]);
 
-  const totalCreditsAllProjects = companies.reduce(
-    (sum, c) => sum + Math.max(0, availableCredits(c.id)),
-    0
-  );
+  const verifiedCount = useMemo(() => {
+    return companies.filter((c) => c.status === 'Verified').length;
+  }, [companies]);
 
-  const typeCounts: Record<string, number> = {};
-  companies.forEach((c) => {
-    typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
-  });
-  const projectTypeData = Object.entries(typeCounts).map(([name, value]) => ({ name, value }));
+  const pendingCount = useMemo(() => {
+    return companies.filter((c) => c.status === 'Pending').length;
+  }, [companies]);
+
+  const geotaggedCount = useMemo(() => {
+    return companies.filter((c) => isValidCoordinate(c.latitude, c.longitude)).length;
+  }, [companies]);
+
+  // Project Type Breakdown (CSS-based, 0 external chart dependencies)
+  const projectTypeData = useMemo(() => {
+    const typeCounts: Record<string, number> = {};
+    companies.forEach((c) => {
+      const type = c.type?.trim() || 'Blue Carbon Project';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+
+    const total = companies.length || 1;
+    return Object.entries(typeCounts)
+      .map(([name, count]) => ({
+        name,
+        count,
+        pct: Math.round((count / total) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [companies]);
+
+  // Credit Distribution by Project (CSS-based, 0 external chart dependencies)
+  const creditsByProject = useMemo(() => {
+    const maxCredit = Math.max(
+      ...companies.map((c) => Math.max(0, availableCredits(c.id))),
+      1
+    );
+
+    return companies
+      .map((c) => {
+        const credits = availableCredits(c.id);
+        const relativePct = Math.min(100, Math.round((Math.max(0, credits) / maxCredit) * 100));
+        return {
+          id: c.id,
+          name: c.name,
+          type: c.type || 'Blue Carbon',
+          status: c.status,
+          credits,
+          relativePct,
+        };
+      })
+      .sort((a, b) => b.credits - a.credits);
+  }, [companies, transactions]);
+
+  // Filtered project list for directory view
+  const filteredProjects = useMemo(() => {
+    return companies.filter((c) => {
+      const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (c.location && c.location.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.type && c.type.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [companies, statusFilter, searchQuery]);
 
   const statusBadge = (status: string) => {
-    if (status === 'Verified') return 'bg-emerald-100 text-emerald-700 border border-emerald-300';
-    if (status === 'Rejected') return 'bg-red-100 text-red-700 border border-red-300';
-    return 'bg-amber-100 text-amber-700 border border-amber-300';
-  };
-
-  const handleSelectProject = (id: number) => {
-    setSelectedProjectId(id);
-    setViewMode('project');
-  };
-
-  const handleFitAll = () => {
-    setSelectedProjectId(null);
-    setViewMode('fit');
-    setTriggerFit((prev) => prev + 1);
-  };
-
-  const handleGlobalView = () => {
-    setSelectedProjectId(null);
-    setViewMode('global');
+    if (status === 'Verified') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'Rejected') return 'bg-rose-50 text-rose-700 border-rose-200';
+    return 'bg-amber-50 text-amber-700 border-amber-200';
   };
 
   if (loading) {
@@ -263,7 +182,7 @@ export default function MapsCharts() {
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
           <div className="flex flex-col items-center gap-3">
             <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-slate-600 font-medium text-sm">Loading global project map &amp; metrics...</p>
+            <p className="text-slate-600 font-medium text-sm">Loading project analytics &amp; registry...</p>
           </div>
         </div>
       </ProtectedRoute>
@@ -278,27 +197,34 @@ export default function MapsCharts() {
           {/* Header */}
           <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Maps &amp; Analytics</h1>
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Project Analytics &amp; Registry</h1>
               <p className="text-slate-600 mt-1">
-                Real-time geospatial visualization of projects and carbon credit exposure worldwide
+                Geographic coordinates, verification status, and carbon credit allocation across all registered projects
               </p>
             </div>
 
             {/* Quick Metrics Bar */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
-                <Globe className="w-4 h-4 text-primary" />
+                <Building2 className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold text-slate-700">
-                  {mappable.length} Mapped Areas
+                  {companies.length} Total Projects
                 </span>
               </div>
               <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span className="text-xs font-semibold text-slate-700">
-                  {companies.filter((c) => c.status === 'Verified').length} Verified
+                  {verifiedCount} Verified
                 </span>
               </div>
               <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-semibold text-slate-700">
+                  {pendingCount} Pending
+                </span>
+              </div>
+              <div className="bg-white px-3.5 py-2 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
+                <Coins className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold text-slate-700">
                   {totalCreditsAllProjects.toLocaleString()} Credits Active
                 </span>
@@ -313,287 +239,243 @@ export default function MapsCharts() {
             </div>
           )}
 
-          {/* ─── Project Geospatial Map ─── */}
-          <Card className="p-6 mb-8 border-slate-200 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          {/* ─── Geographic & Project Registry Section ─── */}
+          <Card className="p-6 mb-8 border-slate-200 shadow-sm bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-primary" />
-                  Global Project Exposures
+                  Geographic &amp; Project Registry
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Showing {mappable.length} of {companies.length} projects with active GPS coordinates
+                  Detailed coordinates and registration metadata for {filteredProjects.length} of {companies.length} project(s)
                 </p>
               </div>
 
-              {/* Map View Controls & Legend */}
-              <div className="flex items-center flex-wrap gap-2">
-                <div className="flex items-center gap-3 text-xs text-slate-600 mr-2 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200">
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Verified
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span> Pending
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500"></span> Rejected
-                  </span>
+              {/* Filters & Search */}
+              <div className="flex items-center flex-wrap gap-2.5">
+                <div className="relative min-w-[200px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Input
+                    placeholder="Search name, location..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-xs"
+                  />
                 </div>
 
-                <Button
-                  variant={viewMode === 'fit' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={handleFitAll}
-                  className="gap-1.5 text-xs h-8"
-                  title="Fit all project coordinates into view"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                  Fit All Areas
-                </Button>
-
-                <Button
-                  variant={viewMode === 'global' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={handleGlobalView}
-                  className="gap-1.5 text-xs h-8"
-                  title="Zoom out to world map overview"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  Global View
-                </Button>
-          {/* ─── Project Map ─── */}
-          <Card className="p-6 mb-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
-              <h2 className="text-xl font-bold text-slate-900">Project Locations</h2>
-              <div className="flex items-center gap-4 text-xs text-slate-600">
-                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
                   <button
-                    onClick={() => setMapType('vector')}
-                    className={`px-2.5 py-1 rounded-md font-medium transition ${
-                      mapType === 'vector' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    onClick={() => setStatusFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                      statusFilter === 'ALL'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    🗺️ Vector Map
+                    All ({companies.length})
                   </button>
                   <button
-                    onClick={() => setMapType('satellite')}
-                    className={`px-2.5 py-1 rounded-md font-medium transition ${
-                      mapType === 'satellite' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    onClick={() => setStatusFilter('Verified')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                      statusFilter === 'Verified'
+                        ? 'bg-white text-emerald-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    🛰️ Satellite Feed
+                    Verified ({verifiedCount})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('Pending')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                      statusFilter === 'Pending'
+                        ? 'bg-white text-amber-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Pending ({pendingCount})
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('Rejected')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                      statusFilter === 'Rejected'
+                        ? 'bg-white text-rose-700 shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Rejected ({companies.filter((c) => c.status === 'Rejected').length})
                   </button>
                 </div>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span> Verified
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-3 h-3 rounded-full bg-orange-400"></span> Pending
-                </span>
               </div>
             </div>
 
-            {/* Quick-Jump Project Navigator Bar */}
-            {mappable.length > 0 && (
-              <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-                <span className="text-slate-500 font-medium whitespace-nowrap">Jump to area:</span>
-                {mappable.map((proj) => {
-                  const isCur = selectedProjectId === proj.id && viewMode === 'project';
-                  return (
-                    <button
-                      key={proj.id}
-                      onClick={() => handleSelectProject(proj.id)}
-                      className={`px-2.5 py-1 rounded-full whitespace-nowrap transition-all font-medium border flex items-center gap-1.5 ${
-                        isCur
-                          ? 'bg-primary text-white border-primary shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          proj.status === 'Verified'
-                            ? 'bg-emerald-400'
-                            : proj.status === 'Rejected'
-                            ? 'bg-rose-400'
-                            : 'bg-amber-400'
-                        }`}
-                      />
-                      {proj.name}
-                    </button>
-                  );
-                })}
+            {/* Project Registry Grid / Table */}
+            {filteredProjects.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 border border-dashed border-slate-200 rounded-lg">
+                <Globe className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-medium">No projects match the selected criteria.</p>
+                <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or status filter.</p>
               </div>
-            )}
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Project</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Location &amp; Coordinates</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Available Credits</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredProjects.map((project) => {
+                      const credits = availableCredits(project.id);
+                      const hasCoords = isValidCoordinate(project.latitude, project.longitude);
 
-            {/* Map Container */}
-            {isMounted && (
-              <div className="rounded-xl overflow-hidden border border-slate-200 relative shadow-inner" style={{ height: '460px' }}>
-                <MapContainer
-                  center={GLOBAL_DEFAULT_CENTER}
-                  zoom={GLOBAL_DEFAULT_ZOOM}
-                  scrollWheelZoom={true}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  {/* Dynamic Auto-Fit / Camera Controller */}
-                  <MapController
-                    projects={mappable}
-                    selectedProject={selectedProject}
-                    viewMode={viewMode}
-                    triggerFit={triggerFit}
-                  />
-
-                  {/* OpenStreetMap Tile Layer */}
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    maxZoom={19}
-                  />
-                  {mapType === 'satellite' ? (
-                    <TileLayer
-                      attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
-                      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    />
-                  ) : (
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    />
-                  )}
-
-
-                  {/* Project Markers */}
-                  {mappable.map((project) => {
-                    const lat = parseFloat(project.latitude!);
-                    const lng = parseFloat(project.longitude!);
-                    const isSelected = selectedProjectId === project.id;
-                    const credits = availableCredits(project.id);
-
-                    return (
-                      <Marker
-                        key={project.id}
-                        position={[lat, lng]}
-                        icon={createMarkerIcon(project.status, isSelected)}
-                        eventHandlers={{
-                          click: () => {
-                            setSelectedProjectId(project.id);
-                            setViewMode('project');
-                          },
-                        }}
-                      >
-                        <Popup className="custom-project-popup">
-                          <div className="p-1 min-w-[200px] text-slate-800">
-                            <div className="flex items-center justify-between gap-2 mb-1.5">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${statusBadge(project.status)}`}>
-                                {project.status.toUpperCase()}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                ID #{project.id}
-                              </span>
+                      return (
+                        <tr key={project.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <div className="font-semibold text-slate-900">{project.name}</div>
+                            <div className="text-xs text-slate-400 font-mono">ID #{project.id}</div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="inline-block text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                              {project.type || 'Blue Carbon'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="text-xs font-medium text-slate-800">
+                              {project.location || 'Location Not Specified'}
                             </div>
-
-                            <h3 className="font-bold text-sm text-slate-900 leading-snug mb-1">
-                              {project.name}
-                            </h3>
-
-                            <p className="text-xs text-slate-500 mb-2">
-                              {project.type || 'Blue Carbon Project'}
-                            </p>
-
-                            <div className="bg-slate-50 rounded-md p-2 text-xs border border-slate-100 mb-2 space-y-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-slate-500">Available Credits:</span>
-                                <span className="font-bold text-primary">
-                                  {credits.toLocaleString()} tCO₂e
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center text-[11px] font-mono text-slate-500">
-                                <span>Coordinates:</span>
-                                <span>{lat.toFixed(4)}, {lng.toFixed(4)}</span>
-                              </div>
-                              {project.location && (
-                                <div className="flex justify-between items-center text-[11px] text-slate-500">
-                                  <span>Location:</span>
-                                  <span className="truncate max-w-[110px]" title={project.location}>
-                                    {project.location}
+                            <div className="text-[11px] font-mono text-slate-500 mt-0.5 flex items-center gap-1">
+                              {hasCoords ? (
+                                <>
+                                  <MapPin className="w-3 h-3 text-primary shrink-0" />
+                                  <span>
+                                    {parseFloat(project.latitude!).toFixed(4)}°, {parseFloat(project.longitude!).toFixed(4)}°
                                   </span>
-                                </div>
+                                </>
+                              ) : (
+                                <span className="text-slate-400 italic">No GPS coordinates</span>
                               )}
                             </div>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="w-full text-xs h-7 gap-1"
-                                onClick={() => handleSelectProject(project.id)}
-                              >
-                                <ZoomIn className="w-3 h-3" /> Focus View
-                              </Button>
-                            </div>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    );
-                  })}
-                </MapContainer>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusBadge(project.status)}`}>
+                              {project.status === 'Verified' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                              {project.status === 'Pending' && <Clock className="w-3 h-3 text-amber-600" />}
+                              {project.status === 'Rejected' && <AlertTriangle className="w-3 h-3 text-rose-600" />}
+                              {project.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right font-mono font-semibold text-slate-900">
+                            {credits.toLocaleString()}{' '}
+                            <span className="text-xs font-normal text-slate-500">tCO₂e</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {unmappableCount > 0 && (
-              <p className="text-xs text-amber-600 mt-3 flex items-center gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  {unmappableCount} project(s) do not have GPS coordinates assigned and are excluded from the map.
-                </span>
-              </p>
-            )}
-
-            {mappable.length === 0 && (
-              <p className="text-xs text-slate-400 mt-3 text-center">
-                No projects with GPS coordinates registered yet. Register projects with latitude and longitude to visualize them globally.
-              </p>
-            )}
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-primary" />
+                <span>Geotagged projects: <strong>{geotaggedCount}</strong> of <strong>{companies.length}</strong></span>
+              </span>
+              <span>Showing {filteredProjects.length} project(s)</span>
+            </div>
           </Card>
 
-          {/* ─── Charts ─── */}
+          {/* ─── Statistical Breakdown Cards (Pure CSS, 0 External Dependencies) ─── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <Card className="p-6 border-slate-200 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Project Type Distribution</h2>
+            
+            {/* Project Type Distribution */}
+            <Card className="p-6 border-slate-200 shadow-sm bg-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <PieIcon className="w-5 h-5 text-primary" />
+                  <h2 className="text-lg font-bold text-slate-900">Project Type Distribution</h2>
+                </div>
+                <span className="text-xs font-medium text-slate-500">
+                  {projectTypeData.length} category(ies)
+                </span>
+              </div>
+
               {projectTypeData.length === 0 ? (
-                <p className="text-sm text-slate-500 py-8 text-center">No projects registered yet.</p>
+                <p className="text-sm text-slate-500 py-12 text-center">No projects registered yet.</p>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={projectTypeData}
-                      cx="50%" cy="50%" labelLine={false}
-                      label={({ name, value }) => `${name}: ${value}`}
-                      outerRadius={80} dataKey="value"
-                    >
-                      {projectTypeData.map((_, index) => (
-                        <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="space-y-4 pt-1">
+                  {projectTypeData.map((item, index) => {
+                    const colorClass = PALETTE[index % PALETTE.length].split(' ')[0];
+                    return (
+                      <div key={item.name} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-slate-800 flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${colorClass}`} />
+                            {item.name}
+                          </span>
+                          <span className="text-slate-600 font-mono">
+                            {item.count} project{item.count !== 1 ? 's' : ''} ({item.pct}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
+                            style={{ width: `${Math.max(5, item.pct)}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </Card>
 
-            <Card className="p-6 border-slate-200 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Available Credits by Project</h2>
+            {/* Available Credits by Project */}
+            <Card className="p-6 border-slate-200 shadow-sm bg-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  <h2 className="text-lg font-bold text-slate-900">Available Credits by Project</h2>
+                </div>
+                <span className="text-xs font-medium text-slate-500">
+                  {creditsByProject.filter((c) => c.credits > 0).length} active balance(s)
+                </span>
+              </div>
+
               {creditsByProject.length === 0 ? (
-                <p className="text-sm text-slate-500 py-8 text-center">No transaction records found.</p>
+                <p className="text-sm text-slate-500 py-12 text-center">No transaction records found.</p>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={creditsByProject}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="name" stroke="#64748b" />
-                    <YAxis stroke="#64748b" />
-                    <Tooltip />
-                    <Bar dataKey="credits" fill="#1e5a8e" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-4 pt-1">
+                  {creditsByProject.slice(0, 7).map((item) => (
+                    <div key={item.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-800 truncate max-w-[200px]" title={item.name}>
+                          {item.name}
+                        </span>
+                        <span className="text-slate-700 font-mono font-semibold">
+                          {item.credits.toLocaleString()}{' '}
+                          <span className="text-slate-400 font-normal">tCO₂e</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all duration-500"
+                          style={{ width: `${Math.max(4, item.relativePct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {creditsByProject.length > 7 && (
+                    <p className="text-[11px] text-slate-400 text-center pt-2">
+                      + {creditsByProject.length - 7} more project(s) listed in table above
+                    </p>
+                  )}
+                </div>
               )}
             </Card>
           </div>
@@ -602,4 +484,3 @@ export default function MapsCharts() {
     </ProtectedRoute>
   );
 }
-

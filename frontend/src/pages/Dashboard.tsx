@@ -174,7 +174,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-900">View Analytics</h3>
-                  <p className="text-sm text-slate-600">See maps and charts</p>
+                  <p className="text-sm text-slate-600">Project metrics &amp; breakdown</p>
                 </div>
               </div>
             </Card>

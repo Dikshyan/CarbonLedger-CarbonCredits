@@ -18,7 +18,7 @@ export default function Header() {
     { label: 'Marketplace', href: '/marketplace', protected: false },
     { label: 'Reports', href: '/reports', protected: false },
     { label: 'Register Project', href: '/projects', protected: true },
-    { label: 'Maps & Charts', href: '/maps-charts', protected: true },
+    { label: 'Analytics', href: '/maps-charts', protected: true },
     { label: 'History', href: '/carbon-history', protected: true },
     { label: 'Profile', href: '/profile', protected: true },
     { label: 'Admin', href: '/admin', protected: true, adminOnly: true },
