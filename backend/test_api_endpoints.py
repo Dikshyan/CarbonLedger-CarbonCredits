@@ -1,5 +1,5 @@
 """
-Automated Backend API Tester for CarbonLedger
+Automated Backend API Tester for BlueChain
 Tests all endpoints in clapi/urls.py and api/urls.py
 """
 
@@ -22,7 +22,7 @@ def record(endpoint, method, status_code, expected_status, passed, detail=""):
     print(f"{status_emoji} [{method}] {endpoint} -> HTTP {status_code} | {detail}")
 
 print("==================================================================")
-print("              CARBONLEDGER BACKEND API TEST SUITE                 ")
+print("                 BLUECHAIN BACKEND API TEST SUITE                 ")
 print("==================================================================")
 
 # 1. Home endpoint
@@ -37,7 +37,7 @@ admin_username = "test_admin"
 admin_password = "SecurePassword123!"
 admin_data = {
     "username": admin_username,
-    "email": "admin@carbonledger.org",
+    "email": "admin@bluechain.org",
     "password": admin_password,
     "role": "Admin"
 }

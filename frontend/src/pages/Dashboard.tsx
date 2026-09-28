@@ -25,7 +25,7 @@ interface Transaction {
 }
 
 const ADDS = ["Issuance", "Recieve"];
-const SUBTRACTS = ["Transfer", "Cancellation", "Cancellatiobn"];
+const SUBTRACTS = ["Transfer", "Cancellation"];
 
 function availableCredits(transactions: Transaction[], companyId: number) {
   return transactions

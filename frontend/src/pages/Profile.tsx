@@ -45,8 +45,8 @@ export default function Profile() {
   const loadProfileData = async () => {
     try {
       const [projData, txData] = await Promise.all([
-        apiFetch('/CarbonLedger/'),
-        apiFetch('/CarbonLedgerTransactions/'),
+        apiFetch('/api/v1/CarbonLedger/'),
+        apiFetch('/api/v1/CarbonLedgerTransactions/'),
       ]);
 
       const projects = Array.isArray(projData) ? projData : [];

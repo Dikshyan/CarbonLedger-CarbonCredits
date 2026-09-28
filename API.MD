@@ -1,6 +1,6 @@
-# CarbonLedger API Reference
+# BlueChain API Reference
 
-Comprehensive documentation for all REST API endpoints across the CarbonLedger MRV Platform.
+Comprehensive documentation for all REST API endpoints across the BlueChain MRV Platform.
 
 ---
 

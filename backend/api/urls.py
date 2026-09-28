@@ -6,9 +6,21 @@ from api.views import (
 from rest_framework import routers
 
 router = routers.DefaultRouter()
-router.register(r'CarbonLedger', CompanyViewSet)
-router.register(r'CarbonLedgerUsers', UserViewSet)
-router.register(r'CarbonLedgerTransactions', CarbonTransactionViewSet)
+router.register(
+    r'CarbonLedger',
+    CompanyViewSet,
+    basename='company'
+)
+router.register(
+    r'CarbonLedgerUsers',
+    UserViewSet,
+    basename='user'
+)
+router.register(
+    r'CarbonLedgerTransactions',
+    CarbonTransactionViewSet,
+    basename='carbontransaction'
+)
 
 urlpatterns = [
     path('', include(router.urls)),

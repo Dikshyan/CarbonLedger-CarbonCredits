@@ -1,17 +1,30 @@
 import logging
+from decimal import Decimal
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Company
-from blockchain.client import create_wallet
+from api.models import Company, CarbonTransaction, User
 
 logger = logging.getLogger(__name__)
 
+
 @receiver(post_save, sender=Company)
-def create_company_wallet(sender, instance, created, **kwargs):
-    if created and not instance.wallet_address:
-        try:
-            result = create_wallet(str(instance.User_id))
-            instance.wallet_address = result["address"]
-            instance.save(update_fields=["wallet_address"])
-        except Exception as e:
-            logger.error(f"Failed to create blockchain wallet for company {instance.User_id}: {e}")
+def create_company_initial_issuance(sender, instance, created, **kwargs):
+    if created:
+        logger.info(
+            "Company created: %s (ID: %s). Auto-issuing initial carbon credits.",
+            instance.name,
+            instance.id,
+        )
+        credits_to_issue = instance.expected_carbon_sequestration
+        if not credits_to_issue or credits_to_issue <= 0:
+            credits_to_issue = Decimal("1000")
+
+        if not CarbonTransaction.objects.filter(project=instance, transaction_type="Issuance").exists():
+            admin_user = User.objects.filter(role="Admin").first() or User.objects.first()
+            if admin_user:
+                CarbonTransaction.objects.create(
+                    project=instance,
+                    credits=credits_to_issue,
+                    transaction_type="Issuance",
+                    initiated_by=admin_user,
+                )

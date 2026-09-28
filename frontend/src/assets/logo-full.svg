@@ -28,6 +28,6 @@
 
   <!-- Wordmark -->
   <text x="40" y="24" font-family="system-ui, -apple-system, sans-serif" font-size="18" letter-spacing="-0.01em">
-    <tspan fill="#ffffff" font-weight="600">Carbon</tspan><tspan fill="#80cbc4" font-weight="300">Ledger</tspan>
+    <tspan fill="#ffffff" font-weight="600">Blue</tspan><tspan fill="#80cbc4" font-weight="300">Chain</tspan>
   </text>
 </svg>

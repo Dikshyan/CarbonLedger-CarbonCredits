@@ -1,6 +1,6 @@
-# Contributing to CarbonLedger
+# Contributing to BlueChain
 
-Welcome to CarbonLedger!
+Welcome to BlueChain!
 
 This document describes how every team member should contribute to the project.
 

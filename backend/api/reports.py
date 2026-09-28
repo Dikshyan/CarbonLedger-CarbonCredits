@@ -1,5 +1,5 @@
 """
-PDF report generation for CarbonLedger.
+PDF report generation for BlueChain.
 
 Strategy (tried in order):
   1. WeasyPrint — requires GTK3 system libraries (available on Linux / CI)

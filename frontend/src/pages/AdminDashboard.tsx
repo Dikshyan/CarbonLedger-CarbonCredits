@@ -5,12 +5,13 @@ import { Input } from '@/components/ui/input';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import StatCard from '@/components/StatCard';
 import { apiFetch } from '@/lib/api';
-import { Users, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { Users, CheckCircle, AlertCircle, TrendingUp, Award } from 'lucide-react';
 
 interface Company {
   id: number;
   name: string;
   location: string;
+  status: string;
   active: boolean;
   added_date: string;
 }
@@ -35,6 +36,12 @@ export default function AdminDashboard() {
   const [savingPrice, setSavingPrice] = useState(false);
   const [approvingId, setApprovingId] = useState<number | null>(null);
 
+  // Form state for issuing carbon credits
+  const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
+  const [issueAmount, setIssueAmount] = useState<string>('');
+  const [issuingCredits, setIssuingCredits] = useState<boolean>(false);
+  const [issueSuccess, setIssueSuccess] = useState<string>('');
+
   const loadAll = () => {
     setLoading(true);
     Promise.all([
@@ -44,11 +51,20 @@ export default function AdminDashboard() {
       apiFetch('/api/v1/pricing/'),
     ])
       .then(([companyData, userData, txData, pricingData]) => {
-        setCompanies(companyData);
-        setUsers(userData);
-        setTransactions(txData);
-        setPricePerCredit(parseFloat(pricingData.price_per_credit));
-        setNewPrice(pricingData.price_per_credit);
+        const companies = Array.isArray(companyData)
+          ? companyData
+          : (companyData?.results ?? []);
+        const users = Array.isArray(userData)
+          ? userData
+          : (userData?.results ?? []);
+        const txs = Array.isArray(txData)
+          ? txData
+          : (txData?.results ?? []);
+        setCompanies(companies);
+        setUsers(users);
+        setTransactions(txs);
+        setPricePerCredit(parseFloat(pricingData?.price_per_credit ?? '18.50'));
+        setNewPrice(pricingData?.price_per_credit ?? '18.50');
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -56,24 +72,57 @@ export default function AdminDashboard() {
 
   useEffect(loadAll, []);
 
-  const pendingCompanies = companies.filter((c) => !c.active);
-  const verifiedCompanies = companies.filter((c) => c.active);
+  const pendingCompanies = companies.filter(
+    (c) => c.status === 'Pending' || (!c.active && c.status !== 'Verified')
+  );
+  const verifiedCompanies = companies.filter(
+    (c) => c.status === 'Verified' || c.active
+  );
   const totalCreditsIssued = transactions
     .filter((t) => t.transaction_type === 'Issuance')
     .reduce((sum, t) => sum + parseFloat(t.credits), 0);
 
   const handleApprove = async (id: number) => {
     setApprovingId(id);
+    setError('');
     try {
       await apiFetch(`/api/v1/CarbonLedger/${id}/`, {
         method: 'PATCH',
-        body: JSON.stringify({ active: true }),
+        body: JSON.stringify({ status: 'Verified', active: true }),
       });
       loadAll();
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Failed to verify project');
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleIssueCredits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProjectId || !issueAmount || parseFloat(issueAmount) <= 0) {
+      setError('Please select a project and enter a valid positive credit amount.');
+      return;
+    }
+    setIssuingCredits(true);
+    setError('');
+    setIssueSuccess('');
+    try {
+      const res = await apiFetch('/api/v1/CarbonLedgerTransactions/', {
+        method: 'POST',
+        body: JSON.stringify({
+          project: Number(selectedProjectId),
+          credits: issueAmount,
+          transaction_type: 'Issuance',
+        }),
+      });
+      setIssueSuccess(`Successfully issued ${issueAmount} carbon credits! (Transaction #${res.id || 'Created'})`);
+      setIssueAmount('');
+      loadAll();
+    } catch (err: any) {
+      setError(err.message || 'Failed to issue credits.');
+    } finally {
+      setIssuingCredits(false);
     }
   };
 
@@ -96,7 +145,7 @@ export default function AdminDashboard() {
   const systemMetrics = [
     { label: 'Total Users', value: users.length, icon: <Users className="h-6 w-6" /> },
     { label: 'Verified Projects', value: verifiedCompanies.length, icon: <CheckCircle className="h-6 w-6" /> },
-    { label: 'Pending Review', value: pendingCompanies.length, icon: <AlertCircle className="h-6 w-6" />, description: 'Awaiting activation' },
+    { label: 'Pending Review', value: pendingCompanies.length, icon: <AlertCircle className="h-6 w-6" />, description: 'Awaiting verification' },
     { label: 'Total Credits Issued', value: totalCreditsIssued.toLocaleString(), icon: <TrendingUp className="h-6 w-6" /> },
   ];
 
@@ -116,7 +165,7 @@ export default function AdminDashboard() {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Admin Dashboard</h1>
-            <p className="text-slate-600">Manage projects, users, and system-wide metrics</p>
+            <p className="text-slate-600">Verify projects, issue credits, manage pricing, and monitor system metrics</p>
           </div>
 
           {error && (
@@ -133,14 +182,14 @@ export default function AdminDashboard() {
 
           <Card className="p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Pending Project Activations</h2>
-              <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-medium">
+              <h2 className="text-xl font-bold text-slate-900">Pending Project Verification</h2>
+              <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-medium">
                 {pendingCompanies.length} pending
               </span>
             </div>
 
             {pendingCompanies.length === 0 ? (
-              <p className="text-sm text-slate-500 py-6 text-center">Nothing pending right now.</p>
+              <p className="text-sm text-slate-500 py-6 text-center">No pending projects awaiting verification.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -148,6 +197,7 @@ export default function AdminDashboard() {
                     <tr className="border-b border-slate-200">
                       <th className="text-left py-3 px-4 font-semibold text-slate-900">Project Name</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-900">Location</th>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-900">Status</th>
                       <th className="text-left py-3 px-4 font-semibold text-slate-900">Submitted</th>
                       <th className="text-right py-3 px-4 font-semibold text-slate-900">Action</th>
                     </tr>
@@ -157,17 +207,22 @@ export default function AdminDashboard() {
                       <tr key={project.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="py-3 px-4 text-slate-900 font-medium">{project.name}</td>
                         <td className="py-3 px-4 text-slate-600">{project.location}</td>
+                        <td className="py-3 px-4">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                            {project.status || 'Pending'}
+                          </span>
+                        </td>
                         <td className="py-3 px-4 text-slate-600 text-sm">
-                          {new Date(project.added_date).toLocaleDateString()}
+                          {project.added_date ? new Date(project.added_date).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <Button
                             size="sm"
                             disabled={approvingId === project.id}
-                            className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium"
                             onClick={() => handleApprove(project.id)}
                           >
-                            {approvingId === project.id ? 'Approving...' : 'Approve'}
+                            {approvingId === project.id ? 'Verifying...' : 'Verify Project'}
                           </Button>
                         </td>
                       </tr>
@@ -178,12 +233,68 @@ export default function AdminDashboard() {
             )}
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <Card className="p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Carbon Credit Pricing</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Award className="h-5 w-5 text-emerald-600" />
+                Issue Carbon Credits
+              </h2>
+              {issueSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 mb-4 text-xs text-emerald-700">
+                  {issueSuccess}
+                </div>
+              )}
+              <form onSubmit={handleIssueCredits} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Select Project
+                  </label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    required
+                  >
+                    <option value="">-- Select Project --</option>
+                    {companies.map((proj) => (
+                      <option key={proj.id} value={proj.id}>
+                        {proj.name} ({proj.status || (proj.active ? 'Verified' : 'Pending')})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Credits Amount (tCO₂e)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    step="any"
+                    placeholder="e.g. 5000"
+                    value={issueAmount}
+                    onChange={(e) => setIssueAmount(e.target.value)}
+                    required
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+                  disabled={issuingCredits}
+                >
+                  {issuingCredits ? 'Issuing Credits...' : 'Issue Credits'}
+                </Button>
+              </form>
+            </Card>
+
+            <Card className="p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Carbon Credit Pricing
+              </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-slate-600">Current Price per Credit</p>
+                  <p className="text-slate-600 text-sm">Current Price per Credit</p>
                   <p className="text-2xl font-bold text-slate-900">${pricePerCredit.toFixed(2)}</p>
                 </div>
                 <Input
@@ -194,7 +305,7 @@ export default function AdminDashboard() {
                   placeholder="New price"
                 />
                 <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
                   onClick={handleUpdatePrice}
                   disabled={savingPrice}
                 >
@@ -204,17 +315,24 @@ export default function AdminDashboard() {
             </Card>
 
             <Card className="p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">System Overview</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Users className="h-5 w-5 text-indigo-600" />
+                System Overview
+              </h2>
               <div className="space-y-3 text-sm text-slate-600">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <p>Total Projects</p>
                   <p className="font-medium text-slate-900">{companies.length}</p>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <p>Verified Projects</p>
+                  <p className="font-medium text-slate-900">{verifiedCompanies.length}</p>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <p>Total Transactions</p>
                   <p className="font-medium text-slate-900">{transactions.length}</p>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between py-1">
                   <p>Total Registered Users</p>
                   <p className="font-medium text-slate-900">{users.length}</p>
                 </div>
@@ -226,4 +344,3 @@ export default function AdminDashboard() {
     </ProtectedRoute>
   );
 }
-

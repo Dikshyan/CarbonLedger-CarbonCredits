@@ -182,6 +182,8 @@ export default function MapsCharts() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [triggerFit, setTriggerFit]     = useState(0);
 
+  const [mapType, setMapType]           = useState<'vector' | 'satellite'>('satellite');
+
   useEffect(() => {
     setIsMounted(true);
     Promise.all([
@@ -359,6 +361,35 @@ export default function MapsCharts() {
                   <Globe className="w-3.5 h-3.5" />
                   Global View
                 </Button>
+          {/* ─── Project Map ─── */}
+          <Card className="p-6 mb-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-bold text-slate-900">Project Locations</h2>
+              <div className="flex items-center gap-4 text-xs text-slate-600">
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                  <button
+                    onClick={() => setMapType('vector')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      mapType === 'vector' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🗺️ Vector Map
+                  </button>
+                  <button
+                    onClick={() => setMapType('satellite')}
+                    className={`px-2.5 py-1 rounded-md font-medium transition ${
+                      mapType === 'satellite' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🛰️ Satellite Feed
+                  </button>
+                </div>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span> Verified
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 rounded-full bg-orange-400"></span> Pending
+                </span>
               </div>
             </div>
 
@@ -417,6 +448,18 @@ export default function MapsCharts() {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     maxZoom={19}
                   />
+                  {mapType === 'satellite' ? (
+                    <TileLayer
+                      attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    />
+                  ) : (
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                  )}
+
 
                   {/* Project Markers */}
                   {mappable.map((project) => {

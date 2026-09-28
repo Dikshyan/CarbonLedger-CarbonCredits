@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
       setLocation('/login');
       return;
     }
-    if (adminOnly && user?.role !== 'Admin') {
+    if (adminOnly && user?.role !== 'Admin' && user?.role !== 'Government Official') {
       setLocation('/dashboard');
     }
   }, [isAuthenticated, adminOnly, user?.role, loading, setLocation]);
@@ -34,7 +34,7 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
     return null;
   }
 
-  if (adminOnly && user?.role !== 'Admin') {
+  if (adminOnly && user?.role !== 'Admin' && user?.role !== 'Government Official') {
     return null;
   }
 

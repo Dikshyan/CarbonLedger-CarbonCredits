@@ -1,4 +1,4 @@
-# 🌱 CarbonLedger
+# 🌱 BlueChain
 
 A blockchain-enabled **Blue Carbon Monitoring, Reporting, and Verification (MRV)** platform developed for **Smart India Hackathon (SIH)**.
 
@@ -28,7 +28,7 @@ A blockchain-enabled **Blue Carbon Monitoring, Reporting, and Verification (MRV)
 # Project Structure
 
 ```
-CarbonLedger/
+BlueChain/
 │
 ├── frontend/              # React Application
 ├── backend/               # Django Backend

@@ -11,7 +11,7 @@ export default function Footer() {
           {/* Left Side */}
           <div className="space-y-3">
             <div className="flex items-center cursor-pointer" onClick={() => setLocation('/')}>
-              <img src={logoFull} alt="CarbonLedger" className="h-9 w-auto" />
+              <img src={logoFull} alt="BlueChain" className="h-9 w-auto" />
             </div>
             <p className="text-sm text-[#80cbc4] font-medium">
               Blockchain-powered Blue Carbon MRV Platform
@@ -70,7 +70,7 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="border-t border-[#1a5c45] pt-6 text-center text-xs text-slate-300">
-          <p>© 2026 CarbonLedger. All rights reserved.</p>
+          <p>© 2026 BlueChain. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -21,7 +21,7 @@ interface Transaction {
 }
 
 const INCOMING = ['Issuance', 'Recieve'];
-const OUTGOING = ['Transfer', 'Cancellation', 'Cancellatiobn'];
+const OUTGOING = ['Transfer', 'Cancellation'];
 
 export default function CarbonHistory() {
   const { user } = useAuth();
@@ -35,7 +35,7 @@ export default function CarbonHistory() {
     Promise.all([
       apiFetch('/api/v1/CarbonLedgerTransactions/'),
       apiFetch('/api/v1/CarbonLedger/'),
-      apiFetch('/api/v1/pricing/'),
+      apiFetch('/api/v1/pricing/').catch(() => ({ price_per_credit: '18.50' })),
     ])
       .then(([txData, companyData, pricingData]: [Transaction[], Company[], any]) => {
         const scopedTx =

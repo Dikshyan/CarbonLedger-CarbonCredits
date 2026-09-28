@@ -13,6 +13,7 @@ export default function Header() {
 
   const navItems = [
     { label: 'Home', href: '/' },
+    { label: 'AI Explorer', href: '/ai-explorer' },
     { label: 'Dashboard', href: '/dashboard', protected: true },
     { label: 'Marketplace', href: '/marketplace', protected: false },
     { label: 'Reports', href: '/reports', protected: false },
@@ -51,13 +52,13 @@ export default function Header() {
             {/* Desktop version (full logo with wordmark) */}
             <img
               src={logoFull}
-              alt="CarbonLedger"
+              alt="BlueChain"
               className="hidden sm:block h-[36px] w-auto"
             />
             {/* Mobile version (icon only) */}
             <img
               src={logoIcon}
-              alt="CarbonLedger"
+              alt="BlueChain"
               className="block sm:hidden h-[36px] w-auto"
             />
           </div>

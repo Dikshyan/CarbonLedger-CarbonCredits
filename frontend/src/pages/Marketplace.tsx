@@ -68,9 +68,9 @@ export default function Marketplace() {
     try {
       setLoading(true);
       const [projData, txData, priceData] = await Promise.all([
-        apiFetch('/CarbonLedger/'),
-        apiFetch('/CarbonLedgerTransactions/'),
-        apiFetch('/pricing/').catch(() => ({ price_per_credit: '18.50' })),
+        apiFetch('/api/v1/CarbonLedger/'),
+        apiFetch('/api/v1/CarbonLedgerTransactions/'),
+        apiFetch('/api/v1/pricing/').catch(() => ({ price_per_credit: '18.50' })),
       ]);
 
       setProjects(Array.isArray(projData) ? projData : []);

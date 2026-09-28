@@ -60,7 +60,7 @@ export default function ProjectRegistration() {
       const lon = parseFloat(formData.longitude) || 88.9468;
       const area = parseFloat(formData.estimatedArea) || 500;
 
-      const res = await fetch('http://localhost:8001/analyze', {
+      const res = await fetch('http://localhost:8001/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,7 +112,19 @@ export default function ProjectRegistration() {
         body: JSON.stringify(payload),
       });
 
-      setSuccess(`Project "${result.name || formData.projectName}" registered successfully!`);
+      const initialCredits = parseFloat(formData.expectedCarbonSequestration) || 1000;
+      if (result && result.id && initialCredits > 0) {
+        await apiFetch('/CarbonLedgerTransactions/', {
+          method: 'POST',
+          body: JSON.stringify({
+            project: result.id,
+            credits: initialCredits.toString(),
+            transaction_type: 'Issuance',
+          }),
+        }).catch(() => {});
+      }
+
+      setSuccess(`Project "${result.name || formData.projectName}" registered successfully! Initial credits issued.`);
       setTimeout(() => {
         setLocation('/dashboard');
       }, 1500);

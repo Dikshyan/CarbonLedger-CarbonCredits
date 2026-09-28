@@ -1,4 +1,4 @@
-# CarbonLedger Architecture
+# BlueChain Architecture
 
 ---
 
