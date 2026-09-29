@@ -40,3 +40,4 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
 
   return <>{children}</>;
 }
+

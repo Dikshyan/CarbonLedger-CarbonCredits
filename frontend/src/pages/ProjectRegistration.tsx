@@ -226,14 +226,14 @@ export default function ProjectRegistration() {
         credential_document: formData.credentialDocument || undefined,
       };
 
-      const result = await apiFetch('/CarbonLedger/', {
+      const result = await apiFetch('/api/v1/CarbonLedger/', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
       const initialCredits = parseFloat(formData.expectedCarbonSequestration) || 1000;
       if (result && result.id && initialCredits > 0) {
-        await apiFetch('/CarbonLedgerTransactions/', {
+        await apiFetch('/api/v1/CarbonLedgerTransactions/', {
           method: 'POST',
           body: JSON.stringify({
             project: result.id,
@@ -751,3 +751,5 @@ export default function ProjectRegistration() {
     </ProtectedRoute>
   );
 }
+
+

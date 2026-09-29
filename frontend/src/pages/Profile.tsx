@@ -70,18 +70,18 @@ export default function Profile() {
   const checkWallet = async () => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       try {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+        const accounts = await (window as any).ethereum.request({
+          method: 'eth_accounts'
+        });
+
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
         }
       } catch (err) {
         console.error('Wallet check error:', err);
       }
-    } else {
-      setWalletAddress('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
     }
   };
-
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-slate-50 py-10">
@@ -233,3 +233,7 @@ export default function Profile() {
     </ProtectedRoute>
   );
 }
+
+
+
+

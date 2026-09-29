@@ -54,9 +54,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     headers,
   });
 
-  if (!response.ok) {
-    throw new Error(`API fetch error on ${cleanPath}: ${response.statusText}`);
-  }
+  if (!response.ok) { const errorText = await response.text(); throw new Error(`API fetch error on ${cleanPath}: ${response.status} ${errorText}`); }
 
   return response.json();
 };
@@ -75,3 +73,7 @@ export const fetchTransactionHistory = async () => {
   const response = await carbonAPI.get('/CarbonLedgerTransactions/');
   return response.data;
 };
+
+
+
+

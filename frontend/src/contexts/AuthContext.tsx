@@ -28,7 +28,7 @@ interface RegisterPayload {
   domain_expertise?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -84,17 +84,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string) => {
+    const cleanUsername = username.trim();
+
     const res = await fetch(`${API_BASE}/api/token/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username: cleanUsername,
+        password,
+      }),
     });
-    if (!res.ok) throw new Error("Invalid username or password");
-    const { access, refresh } = await res.json();
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Login failed:", data);
+      throw new Error(
+        data.detail || data.username?.[0] || "Invalid username or password"
+      );
+    }
+
+    const { access, refresh } = data;
+
+    if (!access || !refresh) {
+      throw new Error("Login succeeded but JWT tokens were not returned.");
+    }
+
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
-    localStorage.setItem("username", username);
-    const profile = await fetchMe(access, username);
+    localStorage.setItem("username", cleanUsername);
+
+    const profile = await fetchMe(access, cleanUsername);
     setUser(profile);
   };
 
@@ -133,3 +153,6 @@ export function useAuth() {
   }
   return context;
 }
+
+
+

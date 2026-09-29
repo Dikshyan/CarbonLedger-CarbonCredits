@@ -296,7 +296,7 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
                     result = transfer_credits(
                         from_project_id=from_project.id,
                         to_project_id=to_project.id,
-                        amount=str(transaction.credits),
+                        amount=str(int(transaction.credits)),
                     )
                 except BlockchainServiceError as exc:
                     raise serializers.ValidationError(

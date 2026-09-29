@@ -347,8 +347,8 @@ export default function Landing() {
       try {
         setLoadingStats(true);
         const [projectsData, txData] = await Promise.all([
-          apiFetch('/CarbonLedger/').catch(() => []),
-          apiFetch('/CarbonLedgerTransactions/').catch(() => []),
+          apiFetch('/api/v1/CarbonLedger/').catch(() => []),
+          apiFetch('/api/v1/CarbonLedgerTransactions/').catch(() => []),
         ]);
 
         const projects = Array.isArray(projectsData) ? projectsData : [];
@@ -837,3 +837,5 @@ export default function Landing() {
     </div>
   );
 }
+
+
