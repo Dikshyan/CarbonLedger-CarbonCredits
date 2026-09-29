@@ -124,6 +124,7 @@ export default function AIExplorer() {
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2025-12-31');
   const [cloudCoverMax, setCloudCoverMax] = useState(20);
+  const [selectedModel, setSelectedModel] = useState<'prithvi-100m' | 'sentinel2-standard'>('prithvi-100m');
 
   const nasaTodayDate = useMemo(() => {
     const d = new Date();
@@ -238,6 +239,7 @@ export default function AIExplorer() {
         startDate,
         endDate,
         cloudCoverMax,
+        modelType: selectedModel,
       });
       setAnalysis(result);
       if (result.tile_urls?.spatial_carbon_tile_url) {
@@ -550,6 +552,35 @@ export default function AIExplorer() {
             </div>
 
 
+            {/* AI Model Architecture Selector */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">AI Model Engine</label>
+              <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setSelectedModel('prithvi-100m')}
+                  className={`py-1.5 px-2 rounded-lg transition-all text-center text-[11px] ${
+                    selectedModel === 'prithvi-100m'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  IBM-NASA Prithvi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedModel('sentinel2-standard')}
+                  className={`py-1.5 px-2 rounded-lg transition-all text-center text-[11px] ${
+                    selectedModel === 'sentinel2-standard'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Standard Index
+                </button>
+              </div>
+            </div>
+
             <Button className="w-full bg-emerald-600 text-white hover:bg-emerald-700 font-semibold" onClick={handleAnalyze} disabled={loading}>
               {loading ? 'Analyzing Earth Engine...' : 'Compute Multi-Index Analysis'}
             </Button>
@@ -570,9 +601,9 @@ export default function AIExplorer() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-700">
               Analysis Results
             </p>
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                {analysis.satellite}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800" title={analysis.model_engine || 'AI Engine'}>
+                {analysis.model_engine ? (analysis.model_engine.includes('Prithvi') ? 'Prithvi 100M' : 'Standard S2') : analysis.satellite}
               </span>
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800" title={`Analyzed ${analysis.image_count ?? 0} cloud-filtered satellite scenes`}>
                 {analysis.image_count ?? 0} Clear Scenes

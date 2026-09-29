@@ -16,6 +16,7 @@ class AnalyzeRequest(BaseModel):
     cloud_cover_max: Optional[float] = 20.0
     custom_density_matrix: Optional[Dict[int, float]] = None
     generate_tiles: Optional[bool] = True
+    model_type: Optional[str] = "sentinel2-standard"  # Options: 'sentinel2-standard', 'prithvi-100m'
 
 
 class IndexStats(BaseModel):
@@ -57,6 +58,7 @@ class AnalysisResult(BaseModel):
     status: str
     project_id: str
     satellite: str = "Sentinel-2"
+    model_engine: Optional[str] = "Standard Sentinel-2 Multi-spectral"
     image_count: int
     analysis_period: dict
     indices: Dict[str, IndexStats]
