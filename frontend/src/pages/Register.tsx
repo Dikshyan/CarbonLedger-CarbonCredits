@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import heroImg from '@/assets/hero.png';
 
 interface Company {
@@ -15,7 +15,13 @@ interface Company {
   name: string;
 }
 
-const ROLES = ['Company Buyer', 'Government Official', 'NGO Representative', 'Admin'];
+// Display label -> backend value mapping for roles
+// Admin and Government Official (Verifier) accounts are created by
+// administrators through the Admin Dashboard, not through public registration.
+const ROLES: { label: string; value: string }[] = [
+  { label: 'NGO Representative', value: 'NGO Representative' },
+  { label: 'Company Buyer', value: 'Company Buyer' },
+];
 
 export default function Register() {
   const [, setLocation] = useLocation();
@@ -29,6 +35,8 @@ export default function Register() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const getRedirectPath = () => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -142,11 +150,11 @@ export default function Register() {
                 <SelectContent className="z-50 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
                   {ROLES.map((r) => (
                     <SelectItem
-                      key={r}
-                      value={r}
+                      key={r.value}
+                      value={r.value}
                       className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 data-[highlighted]:bg-slate-100 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
                     >
-                      {r}
+                      {r.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -189,13 +197,21 @@ export default function Register() {
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 border-blue-200 focus:border-blue-500"
+                className="pl-10 pr-10 border-blue-200 focus:border-blue-500"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
@@ -205,13 +221,21 @@ export default function Register() {
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
               <Input
                 id="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="pl-10 border-blue-200 focus:border-blue-500"
+                className="pl-10 pr-10 border-blue-200 focus:border-blue-500"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 

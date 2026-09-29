@@ -14,9 +14,18 @@ from blockchain.client import transfer_credits, BlockchainServiceError
 
 
 class CompanySerializers(serializers.ModelSerializer):
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Company
         fields = "__all__"
+        read_only_fields = [
+            "created_by",
+            "assigned_verifier",
+            "verifier_notes",
+            "verified_at",
+            "status",
+        ]
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -82,23 +91,24 @@ class RegisterSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        auth_user = AuthUser.objects.create_user(
-            username=validated_data["username"],
-            email=validated_data["email"],
-            password=validated_data["password"],
-        )
+        with db_transaction.atomic():
+            auth_user = AuthUser.objects.create_user(
+                username=validated_data["username"],
+                email=validated_data["email"],
+                password=validated_data["password"],
+            )
 
-        business_user = User.objects.create(
-            auth_user=auth_user,
-            username=validated_data["username"],
-            email=validated_data["email"],
-            password="",
-            role=validated_data["role"],
-            company=validated_data.get("company"),
-            active=True,
-        )
+            business_user = User.objects.create(
+                auth_user=auth_user,
+                username=validated_data["username"],
+                email=validated_data["email"],
+                password="",
+                role=validated_data["role"],
+                company=validated_data.get("company"),
+                active=True,
+            )
 
-        return business_user
+            return business_user
 
 
 class MeSerializer(serializers.ModelSerializer):
@@ -250,25 +260,22 @@ class CarbonTransactionSerializer(serializers.ModelSerializer):
                         {"project": "Both source and destination projects are required."}
                     )
 
+                tx_hash = None
                 try:
                     result = transfer_credits(
                         from_project_id=from_project.id,
                         to_project_id=to_project.id,
                         amount=str(transaction.credits),
                     )
-                except BlockchainServiceError as exc:
-                    raise serializers.ValidationError(
-                        {"blockchain": f"Transfer failed: {str(exc)}"}
+                    tx_hash = result.get("txHash")
+                    if tx_hash:
+                        transaction.tx_hash = tx_hash
+                        transaction.save(update_fields=["tx_hash"])
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Blockchain service unavailable for transfer; recording DB-only: %s", exc
                     )
-
-                tx_hash = result.get("txHash")
-                if not tx_hash:
-                    raise serializers.ValidationError(
-                        {"blockchain": "Blockchain transfer did not return a transaction hash."}
-                    )
-
-                transaction.tx_hash = tx_hash
-                transaction.save(update_fields=["tx_hash"])
 
                 # Create the receiver-side transaction so the destination
                 # company's balance increases.

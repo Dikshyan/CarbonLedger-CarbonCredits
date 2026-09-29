@@ -12,6 +12,7 @@ import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
+import VerifierDashboard from "@/pages/VerifierDashboard";
 import CarbonHistory from "@/pages/CarbonHistory";
 import MapsCharts from "@/pages/MapsCharts";
 import ProjectRegistration from "@/pages/ProjectRegistration";
@@ -44,8 +45,13 @@ function App() {
                   </ProtectedRoute>
                 </Route>
                 <Route path="/admin">
-                  <ProtectedRoute adminOnly>
+                  <ProtectedRoute adminOnly allowedRoles={['Admin']}>
                     <AdminDashboard />
+                  </ProtectedRoute>
+                </Route>
+                <Route path="/verifier">
+                  <ProtectedRoute allowedRoles={['Government Official']}>
+                    <VerifierDashboard />
                   </ProtectedRoute>
                 </Route>
                 <Route path="/carbon-history">

@@ -56,7 +56,17 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   });
 
   if (!response.ok) {
-    throw new Error(`API fetch error on ${cleanPath}: ${response.statusText}`);
+    let errorDetail = '';
+    try {
+      const errData = await response.json();
+      errorDetail = errData.detail || errData.error || (typeof errData === 'string' ? errData : JSON.stringify(errData));
+    } catch {
+      // response is not JSON
+    }
+    const err: any = new Error(errorDetail || `API fetch error on ${cleanPath}: ${response.statusText}`);
+    err.status = response.status;
+    err.detail = errorDetail;
+    throw err;
   }
 
   return response.json();

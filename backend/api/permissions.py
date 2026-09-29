@@ -45,3 +45,11 @@ class CanInitiateTransactionType(permissions.BasePermission):
 
 def get_requesting_user(request):
     return get_business_user(request)
+
+
+def is_admin(request):
+    """Return True if the requester is a superuser or has the Admin business role."""
+    if request.user and request.user.is_superuser:
+        return True
+    profile = get_business_user(request)
+    return profile is not None and profile.role == "Admin"

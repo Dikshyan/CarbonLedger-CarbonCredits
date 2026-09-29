@@ -22,11 +22,13 @@ export default function Header() {
     { label: 'History', href: '/carbon-history', protected: true },
     { label: 'Profile', href: '/profile', protected: true },
     { label: 'Admin', href: '/admin', protected: true, adminOnly: true },
+    { label: 'Verifier Queue', href: '/verifier', protected: true, verifierOnly: true },
   ];
 
   const visibleNavItems = navItems.filter(item => {
     if (item.protected && !isAuthenticated) return false;
     if (item.adminOnly && user?.role !== 'Admin') return false;
+    if (item.verifierOnly && user?.role !== 'Government Official') return false;
     return true;
   });
 

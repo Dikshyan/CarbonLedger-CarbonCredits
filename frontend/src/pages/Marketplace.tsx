@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,13 @@ export default function Marketplace() {
   // Wallet State (MetaMask)
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connectingWallet, setConnectingWallet] = useState(false);
+  const connectingWalletRef = useRef(false);
+  const [chainName, setChainName] = useState<string>('');
+  const [connectedChainId, setConnectedChainId] = useState<number | null>(null);
+
+  // Polygon Amoy Testnet — the intended network per BLOCKCHAIN_HANDOFF.md
+  const EXPECTED_CHAIN_ID = 80002;
+  const EXPECTED_CHAIN_NAME = 'Polygon Amoy';
 
   // Project Details Modal State (Accessible without login)
   const [selectedDetailsProject, setSelectedDetailsProject] = useState<Company | null>(null);
@@ -77,6 +84,22 @@ export default function Marketplace() {
   useEffect(() => {
     loadMarketplaceData();
     checkWalletConnection();
+
+    const eth = (window as any).ethereum;
+    if (eth) {
+      const onAccountsChanged = (accounts: string[]) => {
+        setWalletAddress(accounts.length > 0 ? accounts[0] : null);
+      };
+      const onChainChanged = () => {
+        checkWalletConnection();
+      };
+      eth.on('accountsChanged', onAccountsChanged);
+      eth.on('chainChanged', onChainChanged);
+      return () => {
+        eth.removeListener('accountsChanged', onAccountsChanged);
+        eth.removeListener('chainChanged', onChainChanged);
+      };
+    }
   }, []);
 
   // Handle return path query params (e.g. after login: /marketplace?buy=1&amount=100)
@@ -99,9 +122,16 @@ export default function Marketplace() {
     try {
       setLoading(true);
       setError(null);
+
+      // Only fetch transactions when authenticated — the endpoint requires
+      // IsAuthenticated and would return 403 for guests.
+      const txPromise = user
+        ? apiFetch('/CarbonLedgerTransactions/').catch(() => [])
+        : Promise.resolve([]);
+
       const [projData, txData, priceData] = await Promise.all([
         apiFetch('/CarbonLedger/').catch(() => []),
-        apiFetch('/CarbonLedgerTransactions/').catch(() => []),
+        txPromise,
         apiFetch('/pricing/').catch(() => ({ price_per_credit: '18.50' })),
       ]);
 
@@ -121,12 +151,27 @@ export default function Marketplace() {
     }
   };
 
+  const getChainName = (chainId: string): string => {
+    const id = parseInt(chainId, 16);
+    const names: Record<number, string> = {
+      1: 'Ethereum Mainnet',
+      137: 'Polygon Mainnet',
+      80002: 'Polygon Amoy',
+      31337: 'Hardhat :8545',
+      1337: 'Localhost :8545',
+    };
+    return names[id] || `Chain ${id}`;
+  };
+
   const checkWalletConnection = async () => {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       try {
         const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
+          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          setChainName(getChainName(chainId));
+          setConnectedChainId(parseInt(chainId, 16));
         }
       } catch (err) {
         console.error('Wallet check failed:', err);
@@ -135,6 +180,9 @@ export default function Marketplace() {
   };
 
   const connectWallet = async () => {
+    // Synchronous guard: prevent duplicate MetaMask permission requests
+    if (connectingWalletRef.current) return;
+    connectingWalletRef.current = true;
     setConnectingWallet(true);
     setError(null);
     try {
@@ -144,14 +192,17 @@ export default function Marketplace() {
         });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
+          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          setChainName(getChainName(chainId));
+          setConnectedChainId(parseInt(chainId, 16));
         }
       } else {
-        // Fallback demo connection with Hardhat Account #0
-        setWalletAddress('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+        setError('MetaMask is not installed. Please install MetaMask to connect your wallet.');
       }
     } catch (err: any) {
       setError(err.message || 'MetaMask connection rejected');
     } finally {
+      connectingWalletRef.current = false;
       setConnectingWallet(false);
     }
   };
@@ -173,7 +224,9 @@ export default function Marketplace() {
   const executePurchase = async (project: Company, amount: number) => {
     // 3. After login, require MetaMask connection before purchase
     if (!walletAddress) {
-      await connectWallet();
+      if (!connectingWalletRef.current) {
+        await connectWallet();
+      }
       return;
     }
 
@@ -185,7 +238,7 @@ export default function Marketplace() {
       const txPayload = {
         project: project.id,
         credits: amount.toString(),
-        transaction_type: 'Transfer',
+        transaction_type: 'Recieve',
         wallet_address: walletAddress,
       };
 
@@ -245,9 +298,11 @@ export default function Marketplace() {
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-mono">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-sans font-medium">
-                  Hardhat :8545
-                </span>
+                {chainName && (
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-sans font-medium">
+                    {chainName}
+                  </span>
+                )}
               </div>
             ) : (
               <Button
@@ -261,6 +316,21 @@ export default function Marketplace() {
             )}
           </div>
         </div>
+
+        {/* Wrong-network warning */}
+        {walletAddress && connectedChainId !== null && connectedChainId !== EXPECTED_CHAIN_ID && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-900">Wrong Network Detected</p>
+              <p className="text-amber-700 mt-0.5">
+                Your MetaMask is connected to <strong>{chainName || `Chain ${connectedChainId}`}</strong>.
+                BlueChain requires <strong>{EXPECTED_CHAIN_NAME} (Chain ID {EXPECTED_CHAIN_ID})</strong>.
+                Please switch your MetaMask network to {EXPECTED_CHAIN_NAME} to use the marketplace.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Global Market Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

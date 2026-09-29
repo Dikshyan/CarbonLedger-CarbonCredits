@@ -6,14 +6,18 @@ from django.contrib.auth.models import User as AuthUser
 
 
 class Company(models.Model):
-    STATUS_PENDING  = "Pending"
-    STATUS_VERIFIED = "Verified"
-    STATUS_REJECTED = "Rejected"
+    STATUS_PENDING             = "Pending"
+    STATUS_UNDER_REVIEW        = "Under Review"
+    STATUS_CORRECTION_REQUIRED = "Correction Required"
+    STATUS_VERIFIED            = "Verified"
+    STATUS_REJECTED            = "Rejected"
 
     STATUS_CHOICES = (
-        (STATUS_PENDING,  "Pending"),
-        (STATUS_VERIFIED, "Verified"),
-        (STATUS_REJECTED, "Rejected"),
+        (STATUS_PENDING,             "Pending"),
+        (STATUS_UNDER_REVIEW,        "Under Review"),
+        (STATUS_CORRECTION_REQUIRED, "Correction Required"),
+        (STATUS_VERIFIED,            "Verified"),
+        (STATUS_REJECTED,            "Rejected"),
     )
 
     name       = models.CharField(max_length=200)
@@ -29,7 +33,7 @@ class Company(models.Model):
             ("Credit Transfer",       "Credit Transfer"),
         ),
     )
-    status         = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status         = models.CharField(max_length=30, choices=STATUS_CHOICES, default=STATUS_PENDING)
     added_date     = models.DateTimeField(auto_now=True)
     active         = models.BooleanField(default=True)
     wallet_address = models.CharField(max_length=42, blank=True, null=True)
@@ -37,6 +41,31 @@ class Company(models.Model):
     longitude      = models.DecimalField(max_digits=9,  decimal_places=6, blank=True, null=True)
     estimated_area_hectares          = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     expected_carbon_sequestration    = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+
+    # Who registered/created this project (api.User, not AuthUser).
+    # Null for projects seeded before this field existed.
+    created_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_projects",
+    )
+
+    # The Government Official / Verifier assigned to review this project.
+    assigned_verifier = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assigned_projects",
+    )
+
+    # Notes left by the verifier during review (correction/rejection reasons).
+    verifier_notes = models.TextField(blank=True, default="")
+
+    # Timestamp when the project was verified/approved.
+    verified_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
