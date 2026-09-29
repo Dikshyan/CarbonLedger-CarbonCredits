@@ -98,60 +98,88 @@ export default function Marketplace() {
     }
   };
 
-  const connectWallet = async () => {
+  const connectWallet = async (): Promise<string | null> => {
     setConnectingWallet(true);
+    setError(null);
+
     try {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        const accounts = await (window as any).ethereum.request({
-          method: 'eth_requestAccounts',
-        });
-        if (accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-        }
-      } else {
-        // Fallback demo connection with Hardhat Account #0
-        setWalletAddress('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        throw new Error("Connect MetaMask or Please install MetaMask");
       }
+
+      const accounts = await (window as any).ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No MetaMask account was selected.");
+      }
+
+      const address = accounts[0];
+      setWalletAddress(address);
+
+      return address;
     } catch (err: any) {
-      setError(err.message || 'MetaMask connection rejected');
+      setError(err.message || "Failed to connect MetaMask.");
+      return null;
     } finally {
       setConnectingWallet(false);
     }
   };
-
   const handleBuyCredits = async (project: Company) => {
-    if (!walletAddress) {
-      await connectWallet();
+    let connectedAddress = walletAddress;
+
+    if (!connectedAddress) {
+      connectedAddress = await connectWallet();
     }
+
+    if (!connectedAddress) {
+      return;
+    }
+
     setPurchasingId(project.id);
     setError(null);
     setPurchaseSuccess(null);
 
     try {
-      // Create Carbon Credit Transaction via Django API
       const txPayload = {
         project: project.id,
+        counterparty_project: 2,
         credits: buyAmount.toString(),
         transaction_type: 'Transfer',
-        wallet_address: walletAddress || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+        wallet_address: connectedAddress,
       };
 
-      const res = await apiFetch('/CarbonLedgerTransactions/', {
+      const res = await apiFetch('/api/v1/CarbonLedgerTransactions/', {
         method: 'POST',
         body: JSON.stringify(txPayload),
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+
+        throw new Error(
+          errorData.detail ||
+          errorData.blockchain ||
+          'Transaction failed'
+        );
+      }
+
       setPurchaseSuccess(
-        `Successfully purchased ${buyAmount} carbon credits from "${project.name}"! IPFS CID: ${res.ipfs_cid || 'Generated'}`
+        `Successfully purchased ${buyAmount} carbon credits from "${project.name}"!`
       );
+
       loadMarketplaceData();
     } catch (err: any) {
-      setError(err.message || 'Purchase failed. Ensure sufficient project credits.');
+      console.error('Purchase failed:', err);
+      setError(
+        err.message ||
+        'Purchase failed. Ensure sufficient project credits.'
+      );
     } finally {
       setPurchasingId(null);
     }
   };
-
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -371,3 +399,12 @@ export default function Marketplace() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
