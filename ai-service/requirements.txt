@@ -11,3 +11,6 @@ shapely
 python-dotenv
 pytest
 httpx
+torch
+transformers
+huggingface_hub

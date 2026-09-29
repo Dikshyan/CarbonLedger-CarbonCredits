@@ -31,6 +31,7 @@ export interface AnalysisResult {
   status: 'success' | 'error';
   project_id?: string;
   satellite: string;
+  model_engine?: string;
   image_count?: number;
   analysis_period?: {
     start_date: string;
@@ -59,6 +60,7 @@ export interface AnalyzeOptions {
   endDate?: string;
   cloudCoverMax?: number;
   customDensityMatrix?: Record<number, number>;
+  modelType?: 'sentinel2-standard' | 'prithvi-100m';
 }
 
 const AI_SERVICE_URL = 'http://localhost:8001/api/analyze';
@@ -78,6 +80,7 @@ export async function analyzeArea(
     cloud_cover_max: options?.cloudCoverMax ?? 20.0,
     custom_density_matrix: options?.customDensityMatrix,
     generate_tiles: true,
+    model_type: options?.modelType || 'prithvi-100m',
   };
 
   try {

@@ -25,9 +25,11 @@ from carbon.estimator import (
     create_spatial_carbon_image,
     get_spatial_carbon_tile_url,
 )
+from inference.prithvi_engine import PrithviInferenceEngine
 
 router = APIRouter()
 sentinel_service = SentinelService()
+prithvi_engine = PrithviInferenceEngine()
 
 
 @router.post("/api/analyze", response_model=AnalysisResult)
@@ -35,7 +37,6 @@ def analyze_area(request: AnalyzeRequest) -> AnalysisResult:
     try:
         boundary_dict = request.boundary.model_dump() if hasattr(request.boundary, "model_dump") else request.boundary.dict()
         geometry = ee.Geometry(boundary_dict)
-
 
         sentinel_result = sentinel_service.get_composite(
             geometry=geometry,
@@ -63,8 +64,24 @@ def analyze_area(request: AnalyzeRequest) -> AnalysisResult:
             "mndwi": index_statistics(mndwi, geometry, "MNDWI"),
         }
 
-        classified = classify_landcover(ndvi, ndwi)
-        breakdown = classification_area_breakdown(classified, geometry)
+        # Check model execution mode
+        if request.model_type == "prithvi-100m":
+            model_engine_label = "IBM-NASA Prithvi-100M Multi-Temporal Foundation Model"
+            # Fetch 5D tensor [B, 6, 3, 224, 224] for Prithvi model
+            prithvi_tensor = sentinel_service.get_prithvi_tensor(
+                geometry=geometry,
+                temporal_windows=(request.start_date, request.end_date),
+                cloud_cover_max=request.cloud_cover_max,
+                normalize=True,
+            )
+            prediction = prithvi_engine.predict_patch(prithvi_tensor)
+            # Use classified indices from standard raster for tile rendering
+            classified = classify_landcover(ndvi, ndwi)
+            breakdown = classification_area_breakdown(classified, geometry)
+        else:
+            model_engine_label = "Standard Sentinel-2 Multi-spectral Index Classifier"
+            classified = classify_landcover(ndvi, ndwi)
+            breakdown = classification_area_breakdown(classified, geometry)
 
         carbon_estimate = estimate_carbon_by_class(
             breakdown, custom_density=request.custom_density_matrix
@@ -95,6 +112,7 @@ def analyze_area(request: AnalyzeRequest) -> AnalysisResult:
             status="success",
             project_id=request.project_id or "custom_project",
             satellite="Sentinel-2",
+            model_engine=model_engine_label,
             image_count=sentinel_result.image_count,
             analysis_period={
                 "start_date": request.start_date,
@@ -127,6 +145,13 @@ def analyze_area(request: AnalyzeRequest) -> AnalysisResult:
         raise HTTPException(status_code=502, detail=f"Earth Engine error: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/prithvi/analyze", response_model=AnalysisResult)
+def analyze_prithvi(request: AnalyzeRequest) -> AnalysisResult:
+    """Dedicated endpoint targeting the IBM-NASA Prithvi-100M foundation model."""
+    request.model_type = "prithvi-100m"
+    return analyze_area(request)
 
 
 @router.get("/api/indices/meta")
