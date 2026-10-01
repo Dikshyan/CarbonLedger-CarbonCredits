@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-ccxdky-og0o5^$fq1%-fec)gd)1ypx!3=0cj^1*58i#)wb#njz
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 
 # Application definition
@@ -147,8 +147,13 @@ PINATA_JWT = os.environ.get("PINATA_JWT")
 PINATA_GATEWAY = os.environ.get("PINATA_GATEWAY", "gateway.pinata.cloud")
 BLOCKCHAIN_SERVICE_URL = os.environ.get("BLOCKCHAIN_SERVICE_URL", "http://localhost:4000")
 
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "registry@carbonledger.org")
+
 

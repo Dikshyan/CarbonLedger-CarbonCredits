@@ -16,11 +16,12 @@ interface Company {
 }
 
 // Display label -> backend value mapping for roles
-// Admin and Government Official (Verifier) accounts are created by
+// Admin and Government Official accounts are created by
 // administrators through the Admin Dashboard, not through public registration.
 const ROLES: { label: string; value: string }[] = [
   { label: 'NGO Representative', value: 'NGO Representative' },
   { label: 'Company Buyer', value: 'Company Buyer' },
+  { label: 'Auditor / Field Verifier', value: 'Verifier' },
 ];
 
 export default function Register() {
@@ -31,6 +32,8 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('');
+  const [region, setRegion] = useState('');
+  const [domainExpertise, setDomainExpertise] = useState('');
   const [companyId, setCompanyId] = useState('');
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,6 +90,7 @@ export default function Register() {
         password,
         role,
         ...(companyId ? { company: parseInt(companyId, 10) } : {}),
+        ...(role === 'Verifier' ? { region, domain_expertise: domainExpertise } : {}),
       });
       setLocation(getRedirectPath());
     } catch (err: any) {
@@ -191,6 +195,37 @@ export default function Register() {
             </div>
           )}
 
+          {role === 'Verifier' && (
+            <div className="space-y-4 p-3 bg-blue-50/70 border border-blue-200 rounded-lg">
+              <div>
+                <Label htmlFor="region" className="text-slate-700 font-medium text-xs">
+                  Field Operating Region / Jurisdiction
+                </Label>
+                <Input
+                  id="region"
+                  placeholder="e.g. Sundarbans, Bay of Bengal, Mumbai Coast"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className="mt-1 bg-white text-xs"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="domainExpertise" className="text-slate-700 font-medium text-xs">
+                  Domain Expertise & Specializations
+                </Label>
+                <Input
+                  id="domainExpertise"
+                  placeholder="e.g. Mangrove Forests, Coastal Wetlands, Biomass MRV"
+                  value={domainExpertise}
+                  onChange={(e) => setDomainExpertise(e.target.value)}
+                  className="mt-1 bg-white text-xs"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="password" className="text-slate-700 font-medium">Password</Label>
             <div className="relative mt-2">
@@ -273,3 +308,4 @@ export default function Register() {
     </div>
   );
 }
+

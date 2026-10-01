@@ -101,16 +101,18 @@ export default function Profile() {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       try {
         const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) setWalletAddress(accounts[0]);
-      } catch {
-        // wallet not connected
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+        }
+      } catch (err) {
+        console.error('Wallet check error:', err);
       }
     }
   };
 
   const role = user?.role || '';
   const isAdmin = role === 'Admin';
-  const isGovOfficial = role === 'Government Official';
+  const isGovOfficial = role === 'Government Official' || role === 'Verifier';
   const isNGO = role === 'NGO Representative';
   const isBuyer = role === 'Company Buyer';
 
@@ -132,9 +134,21 @@ export default function Profile() {
                     <Mail className="h-3.5 w-3.5" />
                     <span>{user?.email || '—'}</span>
                   </p>
-                  <span className="inline-block mt-2 px-2.5 py-0.5 bg-blue-400/20 border border-blue-300/30 rounded-full text-xs font-medium text-blue-100">
-                    {role || 'Member'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="inline-block px-2.5 py-0.5 bg-blue-400/20 border border-blue-300/30 rounded-full text-xs font-medium text-blue-100">
+                      {role || 'Member'}
+                    </span>
+                    {user?.region && (
+                      <span className="inline-block px-2.5 py-0.5 bg-blue-400/20 border border-blue-300/30 rounded-full text-xs font-medium text-blue-100">
+                        📍 {user.region}
+                      </span>
+                    )}
+                    {user?.domain_expertise && (
+                      <span className="inline-block px-2.5 py-0.5 bg-blue-400/20 border border-blue-300/30 rounded-full text-xs font-medium text-blue-100">
+                        🎓 {user.domain_expertise}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -525,3 +539,7 @@ export default function Profile() {
     </ProtectedRoute>
   );
 }
+
+
+
+

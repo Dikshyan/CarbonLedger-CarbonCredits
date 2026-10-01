@@ -50,8 +50,8 @@ export default function Reports() {
     try {
       setLoading(true);
       const [projData, txData] = await Promise.all([
-        apiFetch('/CarbonLedger/'),
-        apiFetch('/CarbonLedgerTransactions/'),
+        apiFetch('/api/v1/CarbonLedger/'),
+        apiFetch('/api/v1/CarbonLedgerTransactions/'),
       ]);
       setProjects(Array.isArray(projData) ? projData : []);
       setTransactions(Array.isArray(txData) ? txData : []);
@@ -233,3 +233,5 @@ export default function Reports() {
     </ProtectedRoute>
   );
 }
+
+

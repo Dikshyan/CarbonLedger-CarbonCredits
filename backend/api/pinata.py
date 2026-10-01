@@ -14,20 +14,24 @@ def _headers():
 
 def pin_json(data: dict, name: str) -> str:
     """Pin a JSON object (e.g. transaction record) and return its CID."""
-    resp = requests.post(
-        f"{PINATA_BASE}/pinning/pinJSONToIPFS",
-        json={
-            "pinataContent": data,
-            "pinataMetadata": {"name": name},
-            "pinataOptions": {"cidVersion": 1},
-        },
-        headers=_headers(),
-        timeout=15,
-    )
+    try:
+        resp = requests.post(
+            f"{PINATA_BASE}/pinning/pinJSONToIPFS",
+            json={
+                "pinataContent": data,
+                "pinataMetadata": {"name": name},
+                "pinataOptions": {"cidVersion": 1},
+            },
+            headers=_headers(),
+            timeout=8,
+        )
+    except requests.RequestException as exc:
+        raise PinataError(f"Pinata unavailable: {exc}")
+
     if resp.status_code != 200:
         raise PinataError(resp.text)
-    return resp.json()["IpfsHash"]
 
+    return resp.json()["IpfsHash"]
 
 def pin_file(file_obj, name: str) -> str:
     """Pin a file (e.g. evidence/report) and return its CID."""

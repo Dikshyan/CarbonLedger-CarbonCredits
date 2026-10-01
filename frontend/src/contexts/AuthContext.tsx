@@ -7,6 +7,8 @@ interface User {
   role: string;
   company: number | null;
   active: boolean;
+  region?: string;
+  domain_expertise?: string;
 }
 
 interface AuthContextType {
@@ -24,6 +26,8 @@ interface RegisterPayload {
   password: string;
   role: string;
   company?: number;
+  region?: string;
+  domain_expertise?: string;
 }
 
 import { DJANGO_HOST, API_BASE_URL } from '@/lib/api';
@@ -89,17 +93,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (username: string, password: string) => {
+    const cleanUsername = username.trim();
+
     const res = await fetch(`${DJANGO_HOST}/api/token/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({
+        username: cleanUsername,
+        password,
+      }),
     });
-    if (!res.ok) throw new Error("Invalid username or password");
-    const { access, refresh } = await res.json();
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Login failed:", data);
+      throw new Error(
+        data.detail || data.username?.[0] || "Invalid username or password"
+      );
+    }
+
+    const { access, refresh } = data;
+
+    if (!access || !refresh) {
+      throw new Error("Login succeeded but JWT tokens were not returned.");
+    }
+
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
-    localStorage.setItem("username", username);
-    const profile = await fetchMe(access, username);
+    localStorage.setItem("username", cleanUsername);
+
+    const profile = await fetchMe(access, cleanUsername);
     setUser(profile);
   };
 
@@ -140,3 +164,6 @@ export function useAuth() {
   }
   return context;
 }
+
+
+

@@ -3,7 +3,7 @@ from api.views import (
     CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView,
     RegisterView, MeView, PricingConfigView, DashboardStatsView,
     AdminCreateUserView, AssignVerifierView, ProjectReviewView,
-    ProjectResubmitView,
+    ProjectResubmitView, VerificationAssignmentViewSet,
 )
 from rest_framework import routers
 
@@ -22,6 +22,11 @@ router.register(
     r'CarbonLedgerTransactions',
     CarbonTransactionViewSet,
     basename='carbontransaction'
+)
+router.register(
+    r'VerificationAssignments',
+    VerificationAssignmentViewSet,
+    basename='verificationassignment'
 )
 
 urlpatterns = [
