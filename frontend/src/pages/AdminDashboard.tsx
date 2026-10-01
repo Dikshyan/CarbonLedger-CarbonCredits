@@ -432,8 +432,8 @@ export default function AdminDashboard() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto responsive-table-wrap">
+                <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="border-b border-slate-200">
                       <th className="text-left py-3 px-4 font-semibold text-slate-900 text-xs uppercase tracking-wider">
@@ -665,8 +665,8 @@ export default function AdminDashboard() {
             {users.length === 0 ? (
               <p className="text-sm text-slate-500 py-4 text-center">No users found.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto responsive-table-wrap">
+                <table className="w-full min-w-[550px]">
                   <thead>
                     <tr className="border-b border-slate-200">
                       <th className="text-left py-3 px-4 font-semibold text-slate-700 text-xs uppercase tracking-wider">Username</th>

@@ -321,7 +321,7 @@ export default function ProjectRegistration() {
               </div>
 
               {/* Coordinates */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="latitude" className="text-slate-700 font-medium">
                     Latitude
@@ -419,7 +419,7 @@ export default function ProjectRegistration() {
               </div>
 
               {/* Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-200">
                 <Button
                   type="button"
                   variant="outline"

@@ -245,8 +245,8 @@ export default function Dashboard() {
                 {projects.length === 0 ? (
                   <p className="text-sm text-slate-500 py-8 text-center">No projects in system yet.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="overflow-x-auto responsive-table-wrap">
+                    <table className="w-full min-w-[550px]">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="text-left py-3 px-4 font-semibold text-slate-900 text-sm">Project</th>
@@ -394,8 +394,8 @@ export default function Dashboard() {
                     You haven't registered any projects yet.
                   </p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="overflow-x-auto responsive-table-wrap">
+                    <table className="w-full min-w-[650px]">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="text-left py-3 px-4 font-semibold text-slate-900 text-xs uppercase tracking-wider">Project</th>
@@ -569,8 +569,8 @@ export default function Dashboard() {
                 {transactions.length === 0 ? (
                   <p className="text-sm text-slate-500 py-8 text-center">No transactions yet. Head to the marketplace to buy credits.</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div className="overflow-x-auto responsive-table-wrap">
+                    <table className="w-full min-w-[450px]">
                       <thead>
                         <tr className="border-b border-slate-200">
                           <th className="text-left py-3 px-4 font-semibold text-slate-900 text-sm">Type</th>

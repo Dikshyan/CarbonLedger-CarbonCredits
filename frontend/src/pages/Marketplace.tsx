@@ -81,23 +81,84 @@ export default function Marketplace() {
   const [isExecutingPurchase, setIsExecutingPurchase] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
 
+  // Helper to obtain the true EIP-1193 MetaMask provider
+  const getEthereumProvider = () => {
+    if (typeof window === 'undefined') return null;
+    const eth = (window as any).ethereum;
+    if (!eth) return null;
+    // When multiple wallet extensions are installed, providers array contains the real instances
+    if (Array.isArray(eth.providers) && eth.providers.length > 0) {
+      return eth.providers.find((p: any) => p.isMetaMask) || eth.providers[0];
+    }
+    return eth;
+  };
+
   useEffect(() => {
     loadMarketplaceData();
     checkWalletConnection();
 
-    const eth = (window as any).ethereum;
-    if (eth) {
+    const ethereum = getEthereumProvider();
+    if (ethereum) {
       const onAccountsChanged = (accounts: string[]) => {
         setWalletAddress(accounts.length > 0 ? accounts[0] : null);
       };
       const onChainChanged = () => {
         checkWalletConnection();
       };
-      eth.on('accountsChanged', onAccountsChanged);
-      eth.on('chainChanged', onChainChanged);
+
+      const addListener = (event: string, handler: (...args: any[]) => void) => {
+        try {
+          if (typeof ethereum.on === 'function') {
+            ethereum.on(event, handler);
+            return;
+          }
+        } catch {
+          // Fallback if property access on proxy violates non-configurable invariants
+        }
+        try {
+          const proto = Object.getPrototypeOf(ethereum);
+          if (proto && typeof proto.on === 'function') {
+            proto.on.call(ethereum, event, handler);
+            return;
+          }
+        } catch {
+          // Ignore
+        }
+        try {
+          if (typeof ethereum.addListener === 'function') {
+            ethereum.addListener(event, handler);
+          }
+        } catch {
+          // Ignore
+        }
+      };
+
+      const removeListener = (event: string, handler: (...args: any[]) => void) => {
+        try {
+          if (typeof ethereum.removeListener === 'function') {
+            ethereum.removeListener(event, handler);
+            return;
+          }
+        } catch {
+          // Fallback if property access on proxy violates non-configurable invariants
+        }
+        try {
+          const proto = Object.getPrototypeOf(ethereum);
+          if (proto && typeof proto.removeListener === 'function') {
+            proto.removeListener.call(ethereum, event, handler);
+            return;
+          }
+        } catch {
+          // Ignore
+        }
+      };
+
+      addListener('accountsChanged', onAccountsChanged);
+      addListener('chainChanged', onChainChanged);
+
       return () => {
-        eth.removeListener('accountsChanged', onAccountsChanged);
-        eth.removeListener('chainChanged', onChainChanged);
+        removeListener('accountsChanged', onAccountsChanged);
+        removeListener('chainChanged', onChainChanged);
       };
     }
   }, []);
@@ -164,12 +225,13 @@ export default function Marketplace() {
   };
 
   const checkWalletConnection = async () => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
+    const ethereum = getEthereumProvider();
+    if (ethereum) {
       try {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+        const accounts = await ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
-          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          const chainId = await ethereum.request({ method: 'eth_chainId' });
           setChainName(getChainName(chainId));
           setConnectedChainId(parseInt(chainId, 16));
         }
@@ -186,13 +248,14 @@ export default function Marketplace() {
     setConnectingWallet(true);
     setError(null);
     try {
-      if (typeof window !== 'undefined' && (window as any).ethereum) {
-        const accounts = await (window as any).ethereum.request({
+      const ethereum = getEthereumProvider();
+      if (ethereum) {
+        const accounts = await ethereum.request({
           method: 'eth_requestAccounts',
         });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
-          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          const chainId = await ethereum.request({ method: 'eth_chainId' });
           setChainName(getChainName(chainId));
           setConnectedChainId(parseInt(chainId, 16));
         }
@@ -398,7 +461,7 @@ export default function Marketplace() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {['All', 'Blue Carbon Project', 'Buyer Company'].map((type) => (
               <button
                 key={type}
@@ -580,7 +643,7 @@ export default function Marketplace() {
                 {selectedDetailsProject.wallet_address && (
                   <div className="flex justify-between">
                     <span className="text-slate-400">Project Wallet Address:</span>
-                    <span className="font-mono text-slate-800">{selectedDetailsProject.wallet_address}</span>
+                    <span className="font-mono text-slate-800 break-all text-right max-w-[65%]">{selectedDetailsProject.wallet_address}</span>
                   </div>
                 )}
                 {selectedDetailsProject.latitude && selectedDetailsProject.longitude && (

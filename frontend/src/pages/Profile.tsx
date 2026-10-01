@@ -219,8 +219,8 @@ export default function Profile() {
                   {myProjects.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">No projects in system yet.</p>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
+                    <div className="overflow-x-auto responsive-table-wrap">
+                      <table className="w-full text-sm min-w-[500px]">
                         <thead>
                           <tr className="border-b border-slate-100 bg-slate-50">
                             <th className="text-left py-3 px-4 font-semibold text-slate-700 text-xs uppercase tracking-wider">Project</th>
@@ -492,7 +492,7 @@ export default function Profile() {
                 </Card>
               )}
 
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Button onClick={() => setLocation('/marketplace')} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold gap-2">
                   <BarChart3 className="h-4 w-4" /> Browse Marketplace
                 </Button>
@@ -511,7 +511,7 @@ export default function Profile() {
                   <div className="p-3 bg-purple-50 text-purple-600 rounded-xl"><Wallet className="h-6 w-6" /></div>
                   <div>
                     <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Web3 Wallet</p>
-                    <p className="text-sm font-mono font-bold text-slate-800 mt-0.5">
+                    <p className="text-sm font-mono font-bold text-slate-800 mt-0.5 break-all">
                       {walletAddress || 'Not Connected — open Marketplace to connect MetaMask'}
                     </p>
                   </div>

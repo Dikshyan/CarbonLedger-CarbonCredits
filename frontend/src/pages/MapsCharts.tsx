@@ -140,7 +140,7 @@ export default function MapsCharts() {
           <Card className="p-6 mb-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
               <h2 className="text-xl font-bold text-slate-900">Project Locations</h2>
-              <div className="flex items-center gap-4 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-slate-600">
                 <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
                   <button
                     onClick={() => setMapType('vector')}

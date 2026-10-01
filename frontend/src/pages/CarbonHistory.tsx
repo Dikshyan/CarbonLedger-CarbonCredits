@@ -123,7 +123,7 @@ export default function CarbonHistory() {
                   return (
                     <div
                       key={t.id}
-                      className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex items-center gap-4 flex-1">
                         <div className={`p-2 rounded-lg ${isIncoming ? 'bg-blue-100' : 'bg-green-100'}`}>
