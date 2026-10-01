@@ -219,6 +219,33 @@ export default function ProjectRegistration() {
     }
   };
 
+  const compactBudget = (raw?: string): string | undefined => {
+    if (!raw || !raw.trim()) return undefined;
+    const trimmed = raw.trim();
+
+    // Match verbose budget: "$485,216,422 USD (Restoration: $432,432,194, MRV & Verification: $8,673,644, Community Stewardship: $44,110,584)"
+    const match = trimmed.match(
+      /(\$[\d,]+(?:\.\d+)?\s*USD)\s*\(\s*Restoration:\s*(\$[\d,]+(?:\.\d+)?)[,;]\s*MRV\s*(?:&|and)\s*Verification:\s*(\$[\d,]+(?:\.\d+)?)[,;]\s*Community(?:\s*Stewardship)?:\s*(\$[\d,]+(?:\.\d+)?)\s*\)/i
+    );
+
+    if (match) {
+      const [, total, restoration, mrv, community] = match;
+      const formatted = `${total} (Restoration: ${restoration}; MRV & Verification: ${mrv}; Community: ${community})`;
+      if (formatted.length <= 100) {
+        return formatted;
+      }
+    }
+
+    let simplified = trimmed
+      .replace(/Community Stewardship:/gi, 'Community:')
+      .replace(/, (?=(?:MRV & Verification|Community):)/gi, '; ');
+
+    if (simplified.length > 100) {
+      simplified = simplified.slice(0, 100);
+    }
+    return simplified;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -226,20 +253,24 @@ export default function ProjectRegistration() {
     setSuccess(null);
 
     try {
+      const parsedLat = parseFloat(formData.latitude);
+      const parsedLng = parseFloat(formData.longitude);
+      const parsedArea = parseFloat(formData.estimatedArea);
+
       const payload = {
         name: formData.projectName,
         location: formData.location,
         about: formData.description || 'Verified Blue Carbon Mangrove and Coastal Ecosystem Project.',
         type: formData.projectType,
         wallet_address: formData.walletAddress || undefined,
-        latitude: parseFloat(formData.latitude) || null,
-        longitude: parseFloat(formData.longitude) || null,
-        estimated_area_hectares: parseFloat(formData.estimatedArea) || null,
+        latitude: !isNaN(parsedLat) ? parseFloat(parsedLat.toFixed(6)) : null,
+        longitude: !isNaN(parsedLng) ? parseFloat(parsedLng.toFixed(6)) : null,
+        estimated_area_hectares: !isNaN(parsedArea) ? Number(Number(formData.estimatedArea).toFixed(2)) : null,
         expected_carbon_sequestration: parseFloat(formData.expectedCarbonSequestration) || null,
         // AI Extracted fields
         project_scope: formData.projectScope || undefined,
         objectives: formData.objectives || undefined,
-        estimated_budget: formData.estimatedBudget || undefined,
+        estimated_budget: compactBudget(formData.estimatedBudget),
         target_demographics: formData.targetDemographics || undefined,
         // Credential & Verification fields
         registration_number: formData.registrationNumber || undefined,
