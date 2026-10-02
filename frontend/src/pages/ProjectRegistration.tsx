@@ -7,8 +7,21 @@ import { Label } from '@/components/ui/label';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Sparkles, Loader2, CheckCircle2, AlertCircle, Satellite, Globe, Target, DollarSign, Users2, FileText, X } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
+import {
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Satellite,
+  Globe,
+  Target,
+  DollarSign,
+  Users2,
+  FileText,
+  X,
+} from 'lucide-react';
+import { apiFetch, AI_SERVICE_BASE_URL } from '@/lib/api';
 import { extractProjectDraftData } from '@/services/analysisApi';
 
 interface AIEstimateResult {
@@ -26,16 +39,25 @@ interface AIEstimateResult {
 
 export default function ProjectRegistration() {
   const [, setLocation] = useLocation();
+
+  // Read prefill values from AI Explorer query params
+  const searchParams = new URLSearchParams(window.location.search);
+  const prefillLat = searchParams.get('lat');
+  const prefillLng = searchParams.get('lng');
+  const prefillArea = searchParams.get('area');
+  const prefillCarbon = searchParams.get('carbon');
+  const hasAIPrefill = !!(prefillLat || prefillLng || prefillArea || prefillCarbon);
+
   const [formData, setFormData] = useState({
     projectName: '',
     projectType: 'Blue Carbon Project',
     location: '',
-    latitude: '21.9497',
-    longitude: '88.9468',
+    latitude: prefillLat || '21.9497',
+    longitude: prefillLng || '88.9468',
     description: '',
     startDate: new Date().toISOString().split('T')[0],
-    estimatedArea: '500',
-    expectedCarbonSequestration: '200000',
+    estimatedArea: prefillArea || '500',
+    expectedCarbonSequestration: prefillCarbon || '200000',
     walletAddress: '',
     // AI Extracted Pipeline Fields
     projectScope: '',
@@ -169,7 +191,7 @@ export default function ProjectRegistration() {
       const lon = parseFloat(formData.longitude) || 88.9468;
       const area = parseFloat(formData.estimatedArea) || 500;
 
-      const res = await fetch('http://localhost:8001/api/analyze', {
+      const res = await fetch(`${AI_SERVICE_BASE_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,6 +219,33 @@ export default function ProjectRegistration() {
     }
   };
 
+  const compactBudget = (raw?: string): string | undefined => {
+    if (!raw || !raw.trim()) return undefined;
+    const trimmed = raw.trim();
+
+    // Match verbose budget: "$485,216,422 USD (Restoration: $432,432,194, MRV & Verification: $8,673,644, Community Stewardship: $44,110,584)"
+    const match = trimmed.match(
+      /(\$[\d,]+(?:\.\d+)?\s*USD)\s*\(\s*Restoration:\s*(\$[\d,]+(?:\.\d+)?)[,;]\s*MRV\s*(?:&|and)\s*Verification:\s*(\$[\d,]+(?:\.\d+)?)[,;]\s*Community(?:\s*Stewardship)?:\s*(\$[\d,]+(?:\.\d+)?)\s*\)/i
+    );
+
+    if (match) {
+      const [, total, restoration, mrv, community] = match;
+      const formatted = `${total} (Restoration: ${restoration}; MRV & Verification: ${mrv}; Community: ${community})`;
+      if (formatted.length <= 100) {
+        return formatted;
+      }
+    }
+
+    let simplified = trimmed
+      .replace(/Community Stewardship:/gi, 'Community:')
+      .replace(/, (?=(?:MRV & Verification|Community):)/gi, '; ');
+
+    if (simplified.length > 100) {
+      simplified = simplified.slice(0, 100);
+    }
+    return simplified;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -204,20 +253,24 @@ export default function ProjectRegistration() {
     setSuccess(null);
 
     try {
+      const parsedLat = parseFloat(formData.latitude);
+      const parsedLng = parseFloat(formData.longitude);
+      const parsedArea = parseFloat(formData.estimatedArea);
+
       const payload = {
         name: formData.projectName,
         location: formData.location,
         about: formData.description || 'Verified Blue Carbon Mangrove and Coastal Ecosystem Project.',
         type: formData.projectType,
         wallet_address: formData.walletAddress || undefined,
-        latitude: parseFloat(formData.latitude) || null,
-        longitude: parseFloat(formData.longitude) || null,
-        estimated_area_hectares: parseFloat(formData.estimatedArea) || null,
+        latitude: !isNaN(parsedLat) ? parseFloat(parsedLat.toFixed(6)) : null,
+        longitude: !isNaN(parsedLng) ? parseFloat(parsedLng.toFixed(6)) : null,
+        estimated_area_hectares: !isNaN(parsedArea) ? Number(Number(formData.estimatedArea).toFixed(2)) : null,
         expected_carbon_sequestration: parseFloat(formData.expectedCarbonSequestration) || null,
         // AI Extracted fields
         project_scope: formData.projectScope || undefined,
         objectives: formData.objectives || undefined,
-        estimated_budget: formData.estimatedBudget || undefined,
+        estimated_budget: compactBudget(formData.estimatedBudget),
         target_demographics: formData.targetDemographics || undefined,
         // Credential & Verification fields
         registration_number: formData.registrationNumber || undefined,
@@ -329,6 +382,17 @@ export default function ProjectRegistration() {
             )}
 
             {/* AI Estimation Card */}
+            {hasAIPrefill && (
+              <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-start gap-3 text-sm">
+                <Globe className="h-5 w-5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                <div>
+                  <p className="font-semibold">Prefilled from AI Explorer</p>
+                  <p className="text-emerald-700 mt-0.5">
+                    Coordinates, area, and carbon estimate were imported from your AI Explorer analysis. Please review and edit the values below before submitting.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="mb-8 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-blue-900 font-semibold text-base">
@@ -476,7 +540,7 @@ export default function ProjectRegistration() {
               </div>
 
               {/* Coordinates */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="latitude" className="text-slate-700 font-medium">
                     Latitude
@@ -720,7 +784,7 @@ export default function ProjectRegistration() {
               </div>
 
               {/* Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-200">
                 <Button
                   type="button"
                   variant="outline"

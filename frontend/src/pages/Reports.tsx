@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, API_BASE_URL } from '@/lib/api';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import {
   FileText,
   Download,
@@ -69,8 +70,7 @@ export default function Reports() {
         localStorage.getItem('access_token') ||
         localStorage.getItem('authToken');
 
-      const apiBase = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/api(\/v1)?\/?$/, '');
-      const response = await fetch(`${apiBase}/api/v1/CarbonLedger/${projectId}/report/`, {
+      const response = await fetch(`${API_BASE_URL}/CarbonLedger/${projectId}/report/`, {
         headers: {
           Authorization: token ? `Bearer ${token}` : '',
         },
@@ -97,7 +97,8 @@ export default function Reports() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-slate-50 py-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
@@ -229,6 +230,7 @@ export default function Reports() {
         )}
       </div>
     </div>
+    </ProtectedRoute>
   );
 }
 

@@ -6,7 +6,7 @@ import { MapContainer, Polygon, TileLayer, CircleMarker, Tooltip, useMapEvents, 
 import { area as turfArea } from '@turf/turf';
 import type { Feature, Polygon as GeoPolygon } from 'geojson';
 import 'leaflet/dist/leaflet.css';
-import { RotateCcw, Trash2, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { RotateCcw, Trash2, Globe, Layers, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { analyzeArea, extractProjectDraftData, type AnalysisResult, type IndexStatItem } from '@/services/analysisApi';
 
@@ -124,6 +124,7 @@ export default function AIExplorer() {
   const [startDate, setStartDate] = useState('2025-01-01');
   const [endDate, setEndDate] = useState('2025-12-31');
   const [cloudCoverMax, setCloudCoverMax] = useState(20);
+  const [showLayerMenu, setShowLayerMenu] = useState(false);
   const [selectedModel, setSelectedModel] = useState<'prithvi-100m' | 'sentinel2-standard'>('prithvi-100m');
 
   const nasaTodayDate = useMemo(() => {
@@ -443,74 +444,85 @@ export default function AIExplorer() {
       </div>
 
       {/* Floating Map Layer Selector (Top Right) */}
-      <div className="absolute right-5 top-4 z-40 rounded-2xl border border-white/20 bg-slate-900/90 p-2 shadow-xl backdrop-blur-md text-white text-xs">
-        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Map Visual Overlay</p>
-        <div className="mt-1 flex flex-col gap-1">
-          <button
-            onClick={() => setActiveLayer('base')}
-            className={`rounded-lg px-3 py-1.5 text-left font-medium transition ${activeLayer === 'base' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-              }`}
-          >
-            Standard Base
-          </button>
-          <button
-            onClick={() => setActiveLayer('satellite')}
-            className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-              }`}
-          >
-            <span>Clear Base Satellite Feed</span>
-            <span className="ml-2 rounded bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300">Base</span>
-          </button>
-          <button
-            onClick={() => setActiveLayer('nasa_daily')}
-            className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'nasa_daily' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-              }`}
-          >
-            <span>NASA Daily Satellite & Cloud Feed</span>
-            <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">Daily Cloud</span>
-          </button>
+      <div className="absolute right-4 top-4 z-40">
+        <button
+          onClick={() => setShowLayerMenu((prev) => !prev)}
+          className="md:hidden flex items-center gap-1.5 px-3 py-2 bg-slate-900/90 text-white rounded-xl text-xs font-semibold shadow-lg backdrop-blur-md border border-white/20"
+          aria-label="Toggle map visual overlay"
+        >
+          <Layers className="h-4 w-4" />
+          <span>Layers</span>
+        </button>
 
-          <button
-            onClick={() => {
-              if (!analysis?.tile_urls?.spatial_carbon_tile_url) {
-                setError('Please draw an area and click "Compute Multi-Index Analysis" first to view spatial carbon tiles.');
-                return;
-              }
-              setActiveLayer('carbon_heatmap');
-            }}
-            className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'carbon_heatmap' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-              }`}
-          >
-            <span>Spatial Carbon Heatmap</span>
-            {!analysis?.tile_urls?.spatial_carbon_tile_url && (
-              <span className="ml-2 text-[9px] text-slate-400 italic">Analysis required</span>
-            )}
-          </button>
-          <button
-            onClick={() => {
-              if (!analysis?.tile_urls?.ndvi_tile_url) {
-                setError('Please draw an area and click "Compute Multi-Index Analysis" first to view NDVI raster tiles.');
-                return;
-              }
-              setActiveLayer('ndvi_overlay');
-            }}
-            className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'ndvi_overlay' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
-              }`}
-          >
-            <span>NDVI Density Raster</span>
-            {!analysis?.tile_urls?.ndvi_tile_url && (
-              <span className="ml-2 text-[9px] text-slate-400 italic">Analysis required</span>
-            )}
-          </button>
-        </div>
+        <div className={`mt-2 md:mt-0 ${showLayerMenu ? 'block' : 'hidden md:block'} rounded-2xl border border-white/20 bg-slate-900/95 p-2 shadow-xl backdrop-blur-md text-white text-xs max-w-[280px]`}>
+          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Map Visual Overlay</p>
+          <div className="mt-1 flex flex-col gap-1">
+            <button
+              onClick={() => setActiveLayer('base')}
+              className={`rounded-lg px-3 py-1.5 text-left font-medium transition ${activeLayer === 'base' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`}
+            >
+              Standard Base
+            </button>
+            <button
+              onClick={() => setActiveLayer('satellite')}
+              className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`}
+            >
+              <span>Clear Base Satellite Feed</span>
+              <span className="ml-2 rounded bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300">Base</span>
+            </button>
+            <button
+              onClick={() => setActiveLayer('nasa_daily')}
+              className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'nasa_daily' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`}
+            >
+              <span>NASA Daily Satellite & Cloud Feed</span>
+              <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">Daily Cloud</span>
+            </button>
 
-        <div className="mt-2 pt-1.5 border-t border-slate-800">
-          <button
-            onClick={handleResetMap}
-            className="w-full flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition font-medium text-[11px]"
-          >
-            <RotateCcw className="h-3 w-3" /> Reset Map View
-          </button>
+            <button
+              onClick={() => {
+                if (!analysis?.tile_urls?.spatial_carbon_tile_url) {
+                  setError('Please draw an area and click "Compute Multi-Index Analysis" first to view spatial carbon tiles.');
+                  return;
+                }
+                setActiveLayer('carbon_heatmap');
+              }}
+              className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'carbon_heatmap' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`}
+            >
+              <span>Spatial Carbon Heatmap</span>
+              {!analysis?.tile_urls?.spatial_carbon_tile_url && (
+                <span className="ml-2 text-[9px] text-slate-400 italic">Analysis required</span>
+              )}
+            </button>
+            <button
+              onClick={() => {
+                if (!analysis?.tile_urls?.ndvi_tile_url) {
+                  setError('Please draw an area and click "Compute Multi-Index Analysis" first to view NDVI raster tiles.');
+                  return;
+                }
+                setActiveLayer('ndvi_overlay');
+              }}
+              className={`rounded-lg px-3 py-1.5 text-left font-medium transition flex items-center justify-between ${activeLayer === 'ndvi_overlay' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+                }`}
+            >
+              <span>NDVI Density Raster</span>
+              {!analysis?.tile_urls?.ndvi_tile_url && (
+                <span className="ml-2 text-[9px] text-slate-400 italic">Analysis required</span>
+              )}
+            </button>
+          </div>
+
+          <div className="mt-2 pt-1.5 border-t border-slate-800">
+            <button
+              onClick={handleResetMap}
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition font-medium text-[11px]"
+            >
+              <RotateCcw className="h-3 w-3" /> Reset Map View
+            </button>
+          </div>
         </div>
       </div>
 
@@ -754,6 +766,29 @@ export default function AIExplorer() {
               <span>300+ t/ha (Dense)</span>
             </div>
           </div>
+
+          {/* Register this Area button */}
+          <Button
+            className="mt-4 w-full bg-blue-600 text-white hover:bg-blue-700 font-semibold"
+            onClick={() => {
+              // Compute centroid from drawn polygon points
+              const lats = drawnPoints.map(([, lat]) => lat);
+              const lngs = drawnPoints.map(([lng]) => lng);
+              const centroidLat = (lats.reduce((a, b) => a + b, 0) / lats.length).toFixed(6);
+              const centroidLng = (lngs.reduce((a, b) => a + b, 0) / lngs.length).toFixed(6);
+              const areaHa = areaHectares ? Math.round(areaHectares).toString() : '';
+              const carbonT = analysis ? Math.round(analysis.carbon.total_tonnes).toString() : '';
+              const params = new URLSearchParams();
+              if (centroidLat) params.set('lat', centroidLat);
+              if (centroidLng) params.set('lng', centroidLng);
+              if (areaHa) params.set('area', areaHa);
+              if (carbonT) params.set('carbon', carbonT);
+              setLocation(`/projects/new?${params.toString()}`);
+            }}
+          >
+            <Globe className="h-4 w-4 mr-2" />
+            Register this Area as a Project
+          </Button>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,11 +10,23 @@ import heroImg from '@/assets/hero.png';
 
 export default function Login() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const getRedirectPath = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const next = searchParams.get('next');
+    return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation(getRedirectPath());
+    }
+  }, [isAuthenticated, setLocation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +34,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(username, password);
-      setLocation('/dashboard');
+      setLocation(getRedirectPath());
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
@@ -101,7 +113,11 @@ export default function Login() {
           <p className="text-slate-600 text-sm">
             New to the registry?{' '}
             <button
-              onClick={() => setLocation('/register')}
+              onClick={() => {
+                const searchParams = new URLSearchParams(window.location.search);
+                const next = searchParams.get('next');
+                setLocation(next ? `/register?next=${encodeURIComponent(next)}` : '/register');
+              }}
               className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
             >
               Register your project

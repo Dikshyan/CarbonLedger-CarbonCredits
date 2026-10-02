@@ -5,22 +5,41 @@ import { useEffect } from 'react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminOnly?: boolean;
+  allowedRoles?: string[];
 }
 
-export default function ProtectedRoute({ children, adminOnly = false }: ProtectedRouteProps) {
+export default function ProtectedRoute({
+  children,
+  adminOnly = false,
+  allowedRoles,
+}: ProtectedRouteProps) {
   const { isAuthenticated, user, loading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
     if (loading) return;
     if (!isAuthenticated) {
-      setLocation('/login');
+      const currentPath = window.location.pathname + window.location.search;
+      const redirectPath: string =
+        currentPath && !currentPath.startsWith('/login')
+          ? currentPath
+          : location || '/dashboard';
+      setLocation(`/login?next=${encodeURIComponent(redirectPath)}`);
       return;
     }
-    if (adminOnly && user?.role !== 'Admin' && user?.role !== 'Government Official') {
+
+    const role = user?.role;
+
+    if (adminOnly && role !== 'Admin') {
       setLocation('/dashboard');
+      return;
     }
-  }, [isAuthenticated, adminOnly, user?.role, loading, setLocation]);
+
+    if (allowedRoles && allowedRoles.length > 0 && (!role || !allowedRoles.includes(role))) {
+      setLocation('/dashboard');
+      return;
+    }
+  }, [isAuthenticated, adminOnly, allowedRoles, user?.role, loading, location, setLocation]);
 
   if (loading) {
     return (
@@ -34,7 +53,11 @@ export default function ProtectedRoute({ children, adminOnly = false }: Protecte
     return null;
   }
 
-  if (adminOnly && user?.role !== 'Admin' && user?.role !== 'Government Official') {
+  if (adminOnly && user?.role !== 'Admin') {
+    return null;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0 && (!user?.role || !allowedRoles.includes(user.role))) {
     return null;
   }
 

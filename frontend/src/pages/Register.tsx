@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
-import { Mail, Lock, User as UserIcon } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, Eye, EyeOff } from 'lucide-react';
 import heroImg from '@/assets/hero.png';
 
 interface Company {
@@ -15,11 +15,18 @@ interface Company {
   name: string;
 }
 
-const ROLES = ['Company Buyer', 'Government Official', 'NGO Representative', 'Verifier', 'Admin'];
+// Display label -> backend value mapping for roles
+// Admin and Government Official accounts are created by
+// administrators through the Admin Dashboard, not through public registration.
+const ROLES: { label: string; value: string }[] = [
+  { label: 'NGO Representative', value: 'NGO Representative' },
+  { label: 'Company Buyer', value: 'Company Buyer' },
+  { label: 'Auditor / Field Verifier', value: 'Verifier' },
+];
 
 export default function Register() {
   const [, setLocation] = useLocation();
-  const { register } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +38,20 @@ export default function Register() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const getRedirectPath = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const next = searchParams.get('next');
+    return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation(getRedirectPath());
+    }
+  }, [isAuthenticated, setLocation]);
 
   useEffect(() => {
     apiFetch('/api/v1/CarbonLedger/')
@@ -71,7 +92,7 @@ export default function Register() {
         ...(companyId ? { company: parseInt(companyId, 10) } : {}),
         ...(role === 'Verifier' ? { region, domain_expertise: domainExpertise } : {}),
       });
-      setLocation('/dashboard');
+      setLocation(getRedirectPath());
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -133,11 +154,11 @@ export default function Register() {
                 <SelectContent className="z-50 max-h-60 w-full overflow-auto rounded-md border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
                   {ROLES.map((r) => (
                     <SelectItem
-                      key={r}
-                      value={r}
+                      key={r.value}
+                      value={r.value}
                       className="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-slate-100 data-[highlighted]:bg-slate-100 dark:hover:bg-slate-800 dark:data-[highlighted]:bg-slate-800"
                     >
-                      {r}
+                      {r.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -211,13 +232,21 @@ export default function Register() {
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 border-blue-200 focus:border-blue-500"
+                className="pl-10 pr-10 border-blue-200 focus:border-blue-500"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
@@ -227,13 +256,21 @@ export default function Register() {
               <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
               <Input
                 id="confirmPassword"
-                type="password"
+                type={showConfirmPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="pl-10 border-blue-200 focus:border-blue-500"
+                className="pl-10 pr-10 border-blue-200 focus:border-blue-500"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
@@ -256,7 +293,11 @@ export default function Register() {
           <p className="text-slate-600 text-sm">
             Already registered?{' '}
             <button
-              onClick={() => setLocation('/login')}
+              onClick={() => {
+                const searchParams = new URLSearchParams(window.location.search);
+                const next = searchParams.get('next');
+                setLocation(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
+              }}
               className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
             >
               Access your account

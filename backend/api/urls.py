@@ -1,7 +1,9 @@
 from django.urls import path, include
 from api.views import (
     CompanyViewSet, UserViewSet, CarbonTransactionViewSet, MintCreditsView,
-    RegisterView, MeView, PricingConfigView, VerificationAssignmentViewSet,
+    RegisterView, MeView, PricingConfigView, DashboardStatsView,
+    AdminCreateUserView, AssignVerifierView, ProjectReviewView,
+    ProjectResubmitView, VerificationAssignmentViewSet,
 )
 from rest_framework import routers
 
@@ -33,4 +35,21 @@ urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
     path("me/", MeView.as_view(), name="me"),
     path("pricing/", PricingConfigView.as_view(), name="pricing"),
+    path("dashboard-stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
+    path("admin/users/", AdminCreateUserView.as_view(), name="admin-users"),
+    path(
+        "admin/projects/<int:project_id>/assign-verifier/",
+        AssignVerifierView.as_view(),
+        name="assign-verifier",
+    ),
+    path(
+        "projects/<int:project_id>/review/",
+        ProjectReviewView.as_view(),
+        name="project-review",
+    ),
+    path(
+        "projects/<int:project_id>/resubmit/",
+        ProjectResubmitView.as_view(),
+        name="project-resubmit",
+    ),
 ]

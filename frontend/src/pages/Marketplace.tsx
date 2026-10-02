@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,11 @@ import {
   Filter,
   Coins,
   Leaf,
-  ArrowRight
+  ArrowRight,
+  MapPin,
+  X,
+  AlertTriangle,
+  Info,
 } from 'lucide-react';
 
 interface Company {
@@ -24,10 +29,15 @@ interface Company {
   name: string;
   location: string;
   type: string;
+  about?: string;
+  status?: string;
   wallet_address?: string;
   estimated_area_hectares?: string;
   expected_carbon_sequestration?: string;
+  latitude?: string | number;
+  longitude?: string | number;
   active: boolean;
+  added_date?: string;
 }
 
 interface Transaction {
@@ -41,6 +51,7 @@ interface Transaction {
 }
 
 export default function Marketplace() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const [projects, setProjects] = useState<Company[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -50,27 +61,139 @@ export default function Marketplace() {
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState('All');
 
-  // Wallet State
+  // Wallet State (MetaMask)
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connectingWallet, setConnectingWallet] = useState(false);
+  const connectingWalletRef = useRef(false);
+  const [chainName, setChainName] = useState<string>('');
+  const [connectedChainId, setConnectedChainId] = useState<number | null>(null);
 
-  // Purchase Modal / State
-  const [purchasingId, setPurchasingId] = useState<number | null>(null);
+  // Polygon Amoy Testnet — the intended network per BLOCKCHAIN_HANDOFF.md
+  const EXPECTED_CHAIN_ID = 80002;
+  const EXPECTED_CHAIN_NAME = 'Polygon Amoy';
+
+  // Project Details Modal State (Accessible without login)
+  const [selectedDetailsProject, setSelectedDetailsProject] = useState<Company | null>(null);
+
+  // Purchase Flow State (Requires BlueChain login + MetaMask)
+  const [purchasingProject, setPurchasingProject] = useState<Company | null>(null);
   const [buyAmount, setBuyAmount] = useState<number>(100);
+  const [isExecutingPurchase, setIsExecutingPurchase] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
+
+  // Helper to obtain the true EIP-1193 MetaMask provider
+  const getEthereumProvider = () => {
+    if (typeof window === 'undefined') return null;
+    const eth = (window as any).ethereum;
+    if (!eth) return null;
+    // When multiple wallet extensions are installed, providers array contains the real instances
+    if (Array.isArray(eth.providers) && eth.providers.length > 0) {
+      return eth.providers.find((p: any) => p.isMetaMask) || eth.providers[0];
+    }
+    return eth;
+  };
 
   useEffect(() => {
     loadMarketplaceData();
     checkWalletConnection();
+
+    const ethereum = getEthereumProvider();
+    if (ethereum) {
+      const onAccountsChanged = (accounts: string[]) => {
+        setWalletAddress(accounts.length > 0 ? accounts[0] : null);
+      };
+      const onChainChanged = () => {
+        checkWalletConnection();
+      };
+
+      const addListener = (event: string, handler: (...args: any[]) => void) => {
+        try {
+          if (typeof ethereum.on === 'function') {
+            ethereum.on(event, handler);
+            return;
+          }
+        } catch {
+          // Fallback if property access on proxy violates non-configurable invariants
+        }
+        try {
+          const proto = Object.getPrototypeOf(ethereum);
+          if (proto && typeof proto.on === 'function') {
+            proto.on.call(ethereum, event, handler);
+            return;
+          }
+        } catch {
+          // Ignore
+        }
+        try {
+          if (typeof ethereum.addListener === 'function') {
+            ethereum.addListener(event, handler);
+          }
+        } catch {
+          // Ignore
+        }
+      };
+
+      const removeListener = (event: string, handler: (...args: any[]) => void) => {
+        try {
+          if (typeof ethereum.removeListener === 'function') {
+            ethereum.removeListener(event, handler);
+            return;
+          }
+        } catch {
+          // Fallback if property access on proxy violates non-configurable invariants
+        }
+        try {
+          const proto = Object.getPrototypeOf(ethereum);
+          if (proto && typeof proto.removeListener === 'function') {
+            proto.removeListener.call(ethereum, event, handler);
+            return;
+          }
+        } catch {
+          // Ignore
+        }
+      };
+
+      addListener('accountsChanged', onAccountsChanged);
+      addListener('chainChanged', onChainChanged);
+
+      return () => {
+        removeListener('accountsChanged', onAccountsChanged);
+        removeListener('chainChanged', onChainChanged);
+      };
+    }
   }, []);
+
+  // Handle return path query params (e.g. after login: /marketplace?buy=1&amount=100)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const buyId = params.get('buy');
+    const amountParam = params.get('amount');
+    if (buyId && projects.length > 0) {
+      const targetProj = projects.find((p) => p.id === parseInt(buyId, 10));
+      if (targetProj) {
+        if (amountParam) {
+          setBuyAmount(parseInt(amountParam, 10) || 100);
+        }
+        setPurchasingProject(targetProj);
+      }
+    }
+  }, [projects]);
 
   const loadMarketplaceData = async () => {
     try {
       setLoading(true);
+      setError(null);
+
+      // Only fetch transactions when authenticated — the endpoint requires
+      // IsAuthenticated and would return 403 for guests.
+      const txPromise = user
+        ? apiFetch('/CarbonLedgerTransactions/').catch(() => [])
+        : Promise.resolve([]);
+
       const [projData, txData, priceData] = await Promise.all([
-        apiFetch('/api/v1/CarbonLedger/'),
-        apiFetch('/api/v1/CarbonLedgerTransactions/'),
-        apiFetch('/api/v1/pricing/').catch(() => ({ price_per_credit: '18.50' })),
+        apiFetch('/CarbonLedger/').catch(() => []),
+        txPromise,
+        apiFetch('/pricing/').catch(() => ({ price_per_credit: '18.50' })),
       ]);
 
       setProjects(Array.isArray(projData) ? projData : []);
@@ -79,18 +202,38 @@ export default function Marketplace() {
         setPricePerCredit(parseFloat(priceData.price_per_credit));
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load marketplace data.');
+      const msg = err?.message || '';
+      // Do not display raw 401/unauthorized errors to users
+      if (!msg.includes('401') && !msg.toLowerCase().includes('unauthorized')) {
+        setError('Failed to load marketplace data. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const getChainName = (chainId: string): string => {
+    const id = parseInt(chainId, 16);
+    const names: Record<number, string> = {
+      1: 'Ethereum Mainnet',
+      137: 'Polygon Mainnet',
+      80002: 'Polygon Amoy',
+      31337: 'Hardhat :8545',
+      1337: 'Localhost :8545',
+    };
+    return names[id] || `Chain ${id}`;
+  };
+
   const checkWalletConnection = async () => {
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
+    const ethereum = getEthereumProvider();
+    if (ethereum) {
       try {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+        const accounts = await ethereum.request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
+          const chainId = await ethereum.request({ method: 'eth_chainId' });
+          setChainName(getChainName(chainId));
+          setConnectedChainId(parseInt(chainId, 16));
         }
       } catch (err) {
         console.error('Wallet check failed:', err);
@@ -98,88 +241,97 @@ export default function Marketplace() {
     }
   };
 
-  const connectWallet = async (): Promise<string | null> => {
+  const connectWallet = async () => {
+    // Synchronous guard: prevent duplicate MetaMask permission requests
+    if (connectingWalletRef.current) return;
+    connectingWalletRef.current = true;
     setConnectingWallet(true);
     setError(null);
-
     try {
-      if (typeof window === 'undefined' || !(window as any).ethereum) {
-        throw new Error("Connect MetaMask or Please install MetaMask");
+      const ethereum = getEthereumProvider();
+      if (ethereum) {
+        const accounts = await ethereum.request({
+          method: 'eth_requestAccounts',
+        });
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+          const chainId = await ethereum.request({ method: 'eth_chainId' });
+          setChainName(getChainName(chainId));
+          setConnectedChainId(parseInt(chainId, 16));
+        }
+      } else {
+        setError('MetaMask is not installed. Please install MetaMask to connect your wallet.');
       }
-
-      const accounts = await (window as any).ethereum.request({
-        method: 'eth_requestAccounts',
-      });
-
-      if (!accounts || accounts.length === 0) {
-        throw new Error("No MetaMask account was selected.");
-      }
-
-      const address = accounts[0];
-      setWalletAddress(address);
-
-      return address;
     } catch (err: any) {
-      setError(err.message || "Failed to connect MetaMask.");
-      return null;
+      setError(err.message || 'MetaMask connection rejected');
     } finally {
+      connectingWalletRef.current = false;
       setConnectingWallet(false);
     }
   };
-  const handleBuyCredits = async (project: Company) => {
-    let connectedAddress = walletAddress;
 
-    if (!connectedAddress) {
-      connectedAddress = await connectWallet();
-    }
-
-    if (!connectedAddress) {
+  const handleBuyCredits = (project: Company) => {
+    // 1. If logged out, redirect to Login with a return path to the selected purchase flow
+    if (!user) {
+      const returnPath = `/marketplace?buy=${project.id}&amount=${buyAmount}`;
+      setLocation(`/login?next=${encodeURIComponent(returnPath)}`);
       return;
     }
 
-    setPurchasingId(project.id);
+    // 2. If logged in, open the purchase confirmation dialog
+    setError(null);
+    setPurchaseSuccess(null);
+    setPurchasingProject(project);
+  };
+
+  const executePurchase = async (project: Company, amount: number) => {
+    // 3. After login, require MetaMask connection before purchase
+    if (!walletAddress) {
+      if (!connectingWalletRef.current) {
+        await connectWallet();
+      }
+      return;
+    }
+
+    setIsExecutingPurchase(true);
     setError(null);
     setPurchaseSuccess(null);
 
     try {
       const txPayload = {
         project: project.id,
-        counterparty_project: 2,
-        credits: buyAmount.toString(),
-        transaction_type: 'Transfer',
-        wallet_address: connectedAddress,
+        credits: amount.toString(),
+        transaction_type: 'Recieve',
+        wallet_address: walletAddress,
       };
 
-      const res = await apiFetch('/api/v1/CarbonLedgerTransactions/', {
+      const res = await apiFetch('/CarbonLedgerTransactions/', {
         method: 'POST',
         body: JSON.stringify(txPayload),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-
-        throw new Error(
-          errorData.detail ||
-          errorData.blockchain ||
-          'Transaction failed'
-        );
-      }
-
       setPurchaseSuccess(
-        `Successfully purchased ${buyAmount} carbon credits from "${project.name}"!`
+        `Successfully purchased ${amount} carbon credits from "${project.name}"! IPFS CID: ${res.ipfs_cid || 'Generated'}`
       );
+      setPurchasingProject(null);
 
+      // Clean up search query param after successful purchase
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       loadMarketplaceData();
     } catch (err: any) {
-      console.error('Purchase failed:', err);
-      setError(
-        err.message ||
-        'Purchase failed. Ensure sufficient project credits.'
-      );
+      const msg = err?.message || '';
+      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized')) {
+        setError('Your session has expired. Please sign in again to purchase credits.');
+      } else {
+        setError(msg || 'Purchase failed. Ensure sufficient project credits.');
+      }
     } finally {
-      setPurchasingId(null);
+      setIsExecutingPurchase(false);
     }
   };
+
   const filteredProjects = projects.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -209,9 +361,11 @@ export default function Marketplace() {
               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-mono">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-                <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-sans">
-                  Hardhat :8545
-                </span>
+                {chainName && (
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-sans font-medium">
+                    {chainName}
+                  </span>
+                )}
               </div>
             ) : (
               <Button
@@ -225,6 +379,21 @@ export default function Marketplace() {
             )}
           </div>
         </div>
+
+        {/* Wrong-network warning */}
+        {walletAddress && connectedChainId !== null && connectedChainId !== EXPECTED_CHAIN_ID && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 text-sm">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-900">Wrong Network Detected</p>
+              <p className="text-amber-700 mt-0.5">
+                Your MetaMask is connected to <strong>{chainName || `Chain ${connectedChainId}`}</strong>.
+                BlueChain requires <strong>{EXPECTED_CHAIN_NAME} (Chain ID {EXPECTED_CHAIN_ID})</strong>.
+                Please switch your MetaMask network to {EXPECTED_CHAIN_NAME} to use the marketplace.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Global Market Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -292,7 +461,7 @@ export default function Marketplace() {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {['All', 'Blue Carbon Project', 'Buyer Company'].map((type) => (
               <button
                 key={type}
@@ -327,6 +496,7 @@ export default function Marketplace() {
               const projectTxs = transactions.filter((t) => t.project === project.id);
               const latestCID = projectTxs.find((t) => t.ipfs_cid)?.ipfs_cid;
               const expectedCredits = parseFloat(project.expected_carbon_sequestration || '50000');
+              const statusDisplay = project.status || 'Pending';
 
               return (
                 <Card key={project.id} className="p-6 border-slate-200 bg-white flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -335,12 +505,28 @@ export default function Marketplace() {
                       <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
                         {project.type}
                       </span>
-                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                        Active
+                      {/* Real backend project status (matching Profile.tsx) */}
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                          statusDisplay === 'Verified'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : statusDisplay === 'Rejected'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        {statusDisplay === 'Verified' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                        {statusDisplay}
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-bold text-slate-900 mb-1">{project.name}</h3>
+                    <h3
+                      onClick={() => setSelectedDetailsProject(project)}
+                      className="text-lg font-bold text-slate-900 mb-1 hover:text-blue-600 cursor-pointer transition-colors"
+                      title="Click to view project details"
+                    >
+                      {project.name}
+                    </h3>
                     <p className="text-xs text-slate-500 mb-4">📍 {project.location}</p>
 
                     <div className="space-y-2 py-3 border-y border-slate-100 mb-4 text-xs">
@@ -371,28 +557,230 @@ export default function Marketplace() {
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-2 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedDetailsProject(project)}
+                      className="flex-1 text-xs font-semibold border-slate-200 hover:bg-slate-50 text-slate-700"
+                    >
+                      View Details
+                    </Button>
                     <Button
                       onClick={() => handleBuyCredits(project)}
-                      disabled={purchasingId === project.id}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold gap-2"
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold gap-1.5 shadow-xs"
                     >
-                      {purchasingId === project.id ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Processing Transaction...
-                        </>
-                      ) : (
-                        <>
-                          <span>Buy Credits (${(100 * pricePerCredit).toFixed(0)})</span>
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </>
-                      )}
+                      <span>Buy Credits</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {/* Project Details Modal (Public: works without login) */}
+        {selectedDetailsProject && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+            <Card className="w-full max-w-2xl bg-white p-6 shadow-2xl relative border-slate-200 my-8">
+              <button
+                onClick={() => setSelectedDetailsProject(null)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                aria-label="Close details"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full">
+                  {selectedDetailsProject.type}
+                </span>
+                <span
+                  className={`text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-1 ${
+                    selectedDetailsProject.status === 'Verified'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : selectedDetailsProject.status === 'Rejected'
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  {selectedDetailsProject.status === 'Verified' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {selectedDetailsProject.status || 'Pending'}
+                </span>
+              </div>
+
+              <h2 className="text-2xl font-bold text-slate-900 mb-1">{selectedDetailsProject.name}</h2>
+              <p className="text-sm text-slate-600 flex items-center gap-1.5 mb-4">
+                <MapPin className="h-4 w-4 text-slate-400" />
+                {selectedDetailsProject.location}
+              </p>
+
+              <div className="p-4 bg-slate-50 rounded-lg mb-6 text-sm text-slate-700 leading-relaxed border border-slate-100">
+                <p className="font-semibold text-slate-900 mb-1 text-xs uppercase tracking-wider">Project Overview</p>
+                <p>{selectedDetailsProject.about || 'Verified coastal ecosystem and blue carbon restoration initiative.'}</p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6 text-xs">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-400">Available Credits</span>
+                  <p className="text-base font-bold text-slate-900 mt-0.5">
+                    {parseFloat(selectedDetailsProject.expected_carbon_sequestration || '50000').toLocaleString()} tCO₂e
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                  <span className="text-blue-600">Spot Unit Price</span>
+                  <p className="text-base font-bold text-blue-700 mt-0.5">${pricePerCredit.toFixed(2)}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <span className="text-slate-400">Restoration Area</span>
+                  <p className="text-base font-bold text-slate-900 mt-0.5">
+                    {selectedDetailsProject.estimated_area_hectares || '500'} ha
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs border-t border-slate-100 pt-4 mb-6 text-slate-600">
+                {selectedDetailsProject.wallet_address && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Project Wallet Address:</span>
+                    <span className="font-mono text-slate-800 break-all text-right max-w-[65%]">{selectedDetailsProject.wallet_address}</span>
+                  </div>
+                )}
+                {selectedDetailsProject.latitude && selectedDetailsProject.longitude && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Coordinates:</span>
+                    <span className="font-mono text-slate-800">
+                      {selectedDetailsProject.latitude}, {selectedDetailsProject.longitude}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setSelectedDetailsProject(null)}>
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    const proj = selectedDetailsProject;
+                    setSelectedDetailsProject(null);
+                    handleBuyCredits(proj);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs gap-1.5"
+                >
+                  <span>Buy Credits</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Purchase Confirmation Modal (Requires BlueChain Login + MetaMask) */}
+        {purchasingProject && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <Card className="w-full max-w-md bg-white p-6 shadow-2xl relative border-slate-200">
+              <button
+                onClick={() => setPurchasingProject(null)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+                aria-label="Cancel purchase"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="flex items-center gap-2 mb-2">
+                <Coins className="h-6 w-6 text-blue-600" />
+                <h2 className="text-xl font-bold text-slate-900">Purchase Carbon Credits</h2>
+              </div>
+              <p className="text-xs text-slate-500 mb-4">
+                Project: <span className="font-semibold text-slate-800">{purchasingProject.name}</span>
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Credits to Purchase (tCO₂e)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="100000"
+                    value={buyAmount}
+                    onChange={(e) => setBuyAmount(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="bg-white"
+                  />
+                </div>
+
+                <div className="p-3.5 bg-blue-50/60 rounded-lg border border-blue-100 text-xs space-y-1.5">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Unit Price:</span>
+                    <span className="font-semibold text-slate-800">${pricePerCredit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-900 font-bold text-sm pt-1 border-t border-blue-200/60">
+                    <span>Total Cost:</span>
+                    <span className="text-blue-700">${(buyAmount * pricePerCredit).toFixed(2)} USD</span>
+                  </div>
+                </div>
+
+                {/* Require MetaMask connection before purchase */}
+                {!walletAddress ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold text-amber-900">MetaMask Connection Required</p>
+                        <p className="text-[11px] text-amber-700 mt-0.5">
+                          Please connect your MetaMask wallet before signing this carbon credit purchase on Polygon.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={connectWallet}
+                      disabled={connectingWallet}
+                      className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold gap-2 shadow-xs"
+                    >
+                      <Wallet className="h-4 w-4" />
+                      {connectingWallet ? 'Connecting to MetaMask...' : 'Connect MetaMask Wallet'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="font-mono text-emerald-800">
+                        {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                      MetaMask Connected
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <Button variant="outline" onClick={() => setPurchasingProject(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => executePurchase(purchasingProject, buyAmount)}
+                  disabled={!walletAddress || isExecutingPurchase}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs gap-2"
+                >
+                  {isExecutingPurchase ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Executing Transfer...
+                    </>
+                  ) : (
+                    <>
+                      <span>Confirm Purchase</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
           </div>
         )}
       </div>

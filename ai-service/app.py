@@ -21,11 +21,16 @@ app.add_middleware(
 )
 
 
+GEE_INITIALIZED = False
+
 @app.on_event("startup")
 def init_earth_engine():
+    global GEE_INITIALIZED
     try:
         ee.Initialize(project=PROJECT_ID)
+        GEE_INITIALIZED = True
     except Exception as exc:
+        GEE_INITIALIZED = False
         import logging
         logging.getLogger(__name__).warning(
             "Google Earth Engine initialization failed — running in fallback mode. "
@@ -38,6 +43,17 @@ app.include_router(router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "carbonledger-ai",
+        "version": "2.0.0",
+        "port": 8001,
+        "gee_initialized": GEE_INITIALIZED,
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=True)
 
 

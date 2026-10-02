@@ -7,6 +7,8 @@ interface User {
   role: string;
   company: number | null;
   active: boolean;
+  region?: string;
+  domain_expertise?: string;
 }
 
 interface AuthContextType {
@@ -28,7 +30,7 @@ interface RegisterPayload {
   domain_expertise?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { DJANGO_HOST, API_BASE_URL } from '@/lib/api';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -38,13 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchMe = async (accessToken: string, defaultUsername?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/v1/me/`, {
+      const res = await fetch(`${API_BASE_URL}/me/`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (res.ok) {
         return await res.json();
       }
-    } catch {
+      if (res.status === 401) {
+        throw new Error("Session expired or token invalid");
+      }
+    } catch (e: any) {
+      if (e?.message === "Session expired or token invalid") throw e;
       // Backend unreachable or network error
     }
 
@@ -79,6 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("username");
+        localStorage.removeItem("token");
+        localStorage.removeItem("authToken");
+        setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -86,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string) => {
     const cleanUsername = username.trim();
 
-    const res = await fetch(`${API_BASE}/api/token/`, {
+    const res = await fetch(`${DJANGO_HOST}/api/token/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -119,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (data: RegisterPayload) => {
-    const res = await fetch(`${API_BASE}/api/v1/register/`, {
+    const res = await fetch(`${API_BASE_URL}/register/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -136,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("username");
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
     setUser(null);
   };
 
